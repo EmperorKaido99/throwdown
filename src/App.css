@@ -1,0 +1,572 @@
+.gate {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  text-align: center;
+  padding: 2rem;
+}
+
+.gate h1 {
+  margin: 0;
+  font-size: 2.5rem;
+  letter-spacing: -0.02em;
+}
+
+.gate-sub {
+  margin: 0;
+  color: #7a8699;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+}
+
+.gate-body {
+  max-width: 34rem;
+  color: #9aa7ba;
+  line-height: 1.6;
+}
+
+.gate-btn {
+  margin-top: 1rem;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  border-radius: 8px;
+  border: 1px solid #2f3a4d;
+  background: #1b2430;
+  color: #e6edf5;
+  cursor: pointer;
+}
+
+.gate-btn:hover {
+  background: #243043;
+}
+
+.app {
+  display: flex;
+  gap: 1.25rem;
+  padding: 1.25rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+/* Video and overlay share one stacking context so landmark coordinates and the
+   displayed (mirrored) image stay aligned — the mirroring pitfall called out in
+   05-TECH-SETUP-AND-RISK-LOG.md. The overlay mirrors in code, not in CSS. */
+.stage {
+  position: relative;
+  width: min(80vw, 960px);
+  aspect-ratio: 4 / 3;
+  background: #0b0f14;
+  border-radius: 10px;
+  overflow: hidden;
+  flex: 1 1 480px;
+}
+
+.video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+  display: block;
+}
+
+.pose-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.panel {
+  flex: 0 1 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.hud {
+  background: #10161f;
+  border: 1px solid #212c3a;
+  border-radius: 10px;
+  padding: 0.9rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+  color: #c6d2e0;
+}
+
+.hud hr {
+  border: none;
+  border-top: 1px solid #212c3a;
+  margin: 0.7rem 0;
+}
+
+.hud-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.3rem;
+}
+
+.hud-row button {
+  background: #1b2430;
+  border: 1px solid #2f3a4d;
+  color: #c6d2e0;
+  border-radius: 5px;
+  font-size: 0.7rem;
+  padding: 0.15rem 0.5rem;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.hud-fps {
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.hud-good {
+  color: #4ade80;
+}
+.hud-marginal {
+  color: #fbbf24;
+}
+.hud-poor {
+  color: #f87171;
+}
+
+.hud-sub {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: #7a8699;
+}
+
+.hud-note {
+  color: #7a8699;
+  margin-top: 0.15rem;
+}
+
+.hud-block {
+  margin-bottom: 0.6rem;
+}
+
+.hud-label {
+  color: #7a8699;
+  margin-bottom: 0.15rem;
+}
+
+.hud-stat {
+  color: #c6d2e0;
+  word-break: break-word;
+  line-height: 1.5;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: #9aa7ba;
+  cursor: pointer;
+}
+
+.err {
+  color: #f87171;
+  font-size: 0.8rem;
+  margin: 0;
+}
+
+/* ---- Milestone 1: punch harness ---- */
+
+.app-wide .panel {
+  flex: 0 1 430px;
+}
+
+.modes {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.modes button {
+  flex: 1;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.75rem;
+  border-radius: 6px;
+  border: 1px solid #2f3a4d;
+  background: #141b25;
+  color: #9aa7ba;
+  cursor: pointer;
+}
+
+.modes button.active {
+  background: #1f2a3a;
+  color: #e6edf5;
+  border-color: #3d4c63;
+}
+
+.harness {
+  background: #10161f;
+  border: 1px solid #212c3a;
+  border-radius: 10px;
+  padding: 0.9rem;
+  font-size: 0.85rem;
+}
+
+.harness h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  color: #e6edf5;
+}
+
+.harness .row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 0.6rem 0;
+}
+
+.harness button {
+  padding: 0.45rem 0.8rem;
+  border-radius: 6px;
+  border: 1px solid #2f3a4d;
+  background: #1b2430;
+  color: #e6edf5;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.harness button:hover {
+  background: #243043;
+}
+
+.harness select,
+.harness input {
+  background: #141b25;
+  color: #e6edf5;
+  border: 1px solid #2f3a4d;
+  border-radius: 5px;
+  padding: 0.25rem 0.4rem;
+  font-size: 0.8rem;
+}
+
+.muted {
+  color: #7a8699;
+}
+
+.small {
+  font-size: 0.75rem;
+}
+
+.ok {
+  color: #4ade80;
+}
+
+.bar {
+  height: 7px;
+  background: #1b2430;
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 0.5rem 0 0.25rem;
+}
+
+.bar-fill {
+  height: 100%;
+  background: #4ade80;
+  transition: width 120ms linear;
+}
+
+.punch-readout {
+  text-align: center;
+  padding: 0.8rem 0;
+  border-top: 1px solid #212c3a;
+  border-bottom: 1px solid #212c3a;
+  margin: 0.6rem 0;
+}
+
+.punch-label {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #7dd3fc;
+}
+
+.features {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72rem;
+}
+
+.features td {
+  padding: 0.1rem 0.2rem;
+}
+
+.features td:last-child {
+  text-align: right;
+  color: #c6d2e0;
+}
+
+.log {
+  margin-top: 0.6rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.68rem;
+  max-height: 130px;
+  overflow-y: auto;
+}
+
+.log-row {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.12rem 0;
+  border-bottom: 1px solid #171f2a;
+}
+
+.log-type {
+  color: #7dd3fc;
+  min-width: 62px;
+}
+
+/* Collection prompts are sized to be readable from across a room, since the
+   player is standing back from the camera in a stance, not at the keyboard. */
+.collect {
+  text-align: center;
+  padding: 1.4rem 0.9rem;
+}
+
+.prompt {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0.5rem 0;
+  color: #7a8699;
+}
+
+.prompt.throw {
+  color: #4ade80;
+  font-size: 2.2rem;
+}
+
+.prompt-type {
+  font-size: 3rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: #e6edf5;
+  line-height: 1.1;
+}
+
+.verdict {
+  padding: 0.5rem 0.7rem;
+  border-radius: 6px;
+  font-weight: 600;
+  margin-bottom: 0.7rem;
+}
+
+.verdict.ok {
+  background: rgba(74, 222, 128, 0.12);
+  color: #4ade80;
+}
+
+.verdict.fail {
+  background: rgba(248, 113, 113, 0.12);
+  color: #f87171;
+}
+
+.bars {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+  margin-bottom: 0.7rem;
+}
+
+.bars td {
+  padding: 0.18rem 0.3rem;
+  border-bottom: 1px solid #1a222e;
+}
+
+.bars td:first-child {
+  font-weight: 700;
+  font-family: ui-monospace, monospace;
+}
+
+.report {
+  background: #0b1017;
+  border: 1px solid #1a222e;
+  border-radius: 6px;
+  padding: 0.6rem;
+  font-size: 0.68rem;
+  line-height: 1.45;
+  overflow-x: auto;
+  color: #c6d2e0;
+}
+
+.bad {
+  color: #f87171;
+  font-weight: 700;
+}
+
+/* ---- punch trajectory guides ---- */
+
+.guide {
+  display: flex;
+  gap: 0.8rem;
+  align-items: center;
+  background: #0d131b;
+  border: 1px solid #1e2836;
+  border-radius: 8px;
+  padding: 0.6rem;
+  margin: 0.6rem 0;
+  text-align: left;
+}
+
+.guide-svg {
+  width: 118px;
+  height: 118px;
+  flex: 0 0 auto;
+}
+
+.guide-hand {
+  color: #7dd3fc;
+  font-size: 0.8rem;
+  margin-bottom: 0.3rem;
+  text-transform: capitalize;
+}
+
+.guide-cues {
+  margin: 0;
+  padding-left: 1rem;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: #9aa7ba;
+}
+
+/* Compact variant: the four-punch reference grid. */
+.guide-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.4rem;
+  margin: 0.6rem 0;
+}
+
+.guide-compact {
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.35rem;
+  margin: 0;
+  text-align: center;
+}
+
+.guide-compact .guide-svg {
+  width: 100%;
+  height: auto;
+}
+
+.guide-caption {
+  font-size: 0.68rem;
+  color: #9aa7ba;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.next-up {
+  margin-top: 0.4rem;
+  opacity: 0.7;
+}
+
+.guide-title {
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  color: #7dd3fc;
+  margin-top: 0.8rem;
+}
+
+/* ---- Milestone 2: dodge / duck indicator ---- */
+
+.dodge {
+  background: #0d131b;
+  border: 1px solid #1e2836;
+  border-radius: 8px;
+  padding: 0.6rem;
+  margin: 0.6rem 0;
+}
+
+.dodge-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: #9aa7ba;
+  margin-bottom: 0.4rem;
+}
+
+.dodge-field {
+  position: relative;
+  height: 110px;
+  background: #0a0f16;
+  border: 1px solid #1e2836;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.dodge-axis {
+  position: absolute;
+  background: #1a2331;
+}
+
+.dodge-axis-v {
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+
+.dodge-axis-h {
+  top: 34%;
+  left: 0;
+  right: 0;
+  height: 1px;
+}
+
+/* The dead zone, drawn so it's obvious whether a reading is being suppressed. */
+.dodge-neutral {
+  position: absolute;
+  left: 42%;
+  width: 16%;
+  top: 22%;
+  height: 24%;
+  border: 1px dashed #2a3646;
+  border-radius: 4px;
+}
+
+.dodge-dot {
+  position: absolute;
+  width: 15px;
+  height: 15px;
+  margin: -7.5px 0 0 -7.5px;
+  border-radius: 50%;
+  background: #7dd3fc;
+  box-shadow: 0 0 10px rgba(125, 211, 252, 0.5);
+  transition: left 60ms linear, top 60ms linear;
+}
+
+.dodge-label {
+  text-align: center;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  margin: 0.4rem 0;
+}
+
+.dodge-label.active {
+  color: #4ade80;
+  font-weight: 700;
+}
+
+.mini {
+  background: #1b2430;
+  border: 1px solid #2f3a4d;
+  color: #c6d2e0;
+  border-radius: 5px;
+  font-size: 0.68rem;
+  padding: 0.1rem 0.45rem;
+  cursor: pointer;
+  font-family: inherit;
+}
