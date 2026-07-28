@@ -12,6 +12,7 @@ import { SettingsScreen } from "./ui/shell/SettingsScreen";
 import { FightScreen, FIGHT_READY } from "./ui/shell/FightScreen";
 import { SCREEN_TITLES, type Screen } from "./ui/shell/screens";
 import { loadSettings, saveSettings, type Settings } from "./config/settings";
+import { captureRunContext } from "./debug/runContext";
 import { NEUTRAL_HEAD_STATE, type HeadState } from "./perception/dodgeDetector";
 import type { PunchType, Stance } from "./perception/punchTypes";
 import "./App.css";
@@ -60,6 +61,16 @@ export default function App() {
     setSettings(next);
     saveSettings(next);
   }, []);
+
+  // Snapshotted at the start and end of a measured run. docs/05 open question
+  // 7b requires these recorded alongside a confusion matrix; collecting them
+  // automatically is the only way that survives a player who is across the room
+  // and has just thrown eighty punches.
+  const captureContext = useCallback(
+    () =>
+      captureRunContext(info, delegate, frameIntervalStats.compute().median),
+    [info, delegate, frameIntervalStats]
+  );
 
   // Debug hook: lets measurement/diagnostic scripts inspect the live pose,
   // e.g. to find which landmark is failing a confidence gate.
@@ -175,6 +186,7 @@ export default function App() {
               onVoicePromptsChange={(v) =>
                 updateSettings({ ...settings, voicePrompts: v })
               }
+              captureContext={captureContext}
             />
 
             <DebugHud

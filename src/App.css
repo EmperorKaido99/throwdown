@@ -580,3 +580,13 @@
   cursor: pointer;
   font-family: inherit;
 }
+
+/* Recovery offer for a persisted run. Sits on the calibration screen because
+   that is where a reloaded phone lands. */
+.recover {
+  margin: 0.75rem 0;
+  padding: 0.75rem 0.9rem;
+  border-radius: 10px;
+  border: 1px solid #2b3a25;
+  background: #131a11;
+}

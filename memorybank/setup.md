@@ -98,6 +98,24 @@ The screen wake lock is requested automatically while the camera is on — a
 phone that auto-locks mid-run stops the camera and scores every remaining
 prompt as a miss.
 
+## Hosting (Vercel)
+
+`vercel.json` sets the build (`npm run build` → `dist`) and long cache headers
+for the two big static payloads: 33 MB of MediaPipe WASM under
+`/mediapipe/wasm/` and the 5.6 MB `pose_landmarker_lite.task` model.
+
+**No cross-origin-isolation headers are needed.** The vendored WASM glue makes
+no `SharedArrayBuffer` reference, so COOP/COEP are unnecessary — do not add them
+speculatively, they break unrelated things.
+
+Hosting is the better answer to the secure-context problem than `dev:lan`:
+Vercel serves HTTPS with a real certificate, so phones get camera access with no
+warning to click past and no LAN requirement. It is also a production build, so
+the `?worker=1` path works there — unlike `npm run dev`.
+
+Nothing about hosting changes the privacy position: there is no server
+component, and the camera stream never leaves the device.
+
 ## Do not
 
 - Do not run a broad `pkill -f vite` — it kills the sibling Flap project's dev server too.

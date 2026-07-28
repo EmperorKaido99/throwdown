@@ -15,6 +15,18 @@ import { DodgeIndicator } from "./DodgeIndicator";
 import { DetectionDiagnostics } from "./DetectionDiagnostics";
 import { cancelSpeech, primeSpeech, speak, speechSupported } from "./speech";
 import { useWakeLock } from "./useWakeLock";
+import {
+  formatRunConditions,
+  type RunConditions,
+  type RunContext,
+} from "../debug/runContext";
+import {
+  clearRun,
+  loadRun,
+  saveRun,
+  shareReport,
+  type SavedRun,
+} from "../debug/savedRun";
 
 // Milestone 1 harness: webcam -> landmarks -> classifier -> on-screen label,
 // plus a guided protocol that produces a real confusion matrix.
@@ -43,6 +55,8 @@ interface Props {
   /** Speak each prompt aloud. Required in practice on a phone — see speech.ts. */
   voicePrompts: boolean;
   onVoicePromptsChange: (next: boolean) => void;
+  /** Snapshot of device/camera/pose-rate conditions, stamped onto the report. */
+  captureContext: () => RunContext;
 }
 
 export function PunchHarness({
@@ -50,6 +64,7 @@ export function PunchHarness({
   enabled,
   voicePrompts,
   onVoicePromptsChange,
+  captureContext,
 }: Props) {
   const [step, setStep] = useState<Step>("calibrate");
   const [stance, setStance] = useState<Stance>("orthodox");
@@ -98,17 +113,30 @@ export function PunchHarness({
     });
   }, [onPunch]);
 
+  // Conditions the run happened under. Captured at the start and again at the
+  // end so a thermal slowdown across a ~4.5 minute run is visible in the report
+  // rather than being invisibly baked into the later trials.
+  const [conditions, setConditions] = useState<RunConditions | null>(null);
+
   const startCollection = useCallback(() => {
     setTrials([]);
     setTrialIndex(0);
     setWindowPhase("ready");
     captured.current = null;
     capturing.current = false;
+    setConditions({
+      start: captureContext(),
+      end: null,
+      stance,
+      repsPerType,
+      torsoScale: calibration?.torsoScale ?? null,
+      scaleSource: calibration?.scaleSource ?? null,
+    });
     // iOS Safari only permits synthesis that was started from a user gesture,
     // and this click is the last one before the player steps back out of reach.
     if (voicePrompts) primeSpeech();
     setStep("collect");
-  }, [voicePrompts]);
+  }, [voicePrompts, captureContext, stance, repsPerType, calibration]);
 
   // The player never touches the device during a run, which on a phone is long
   // enough to hit auto-lock. Held across the whole harness, not just the run,
@@ -168,6 +196,31 @@ export function PunchHarness({
     if (step !== "collect") cancelSpeech();
   }, [step]);
 
+  // Close out the run once, however it ended, and persist it immediately —
+  // before the player has walked back to the device. Four and a half minutes of
+  // punches should not be recoverable only from a screen that is still open.
+  const finalised = useRef(false);
+  useEffect(() => {
+    if (step !== "results") {
+      finalised.current = false;
+      return;
+    }
+    if (finalised.current || trials.length === 0 || !conditions) return;
+    finalised.current = true;
+    const closed: RunConditions = { ...conditions, end: captureContext() };
+    setConditions(closed);
+    saveRun(trials, closed);
+  }, [step, trials, conditions, captureContext]);
+
+  const recoverRun = useCallback((r: SavedRun) => {
+    setTrials(r.trials);
+    setConditions(r.conditions);
+    // Already persisted; re-saving would overwrite its end conditions with this
+    // session's, which were not the conditions the run was taken under.
+    finalised.current = true;
+    setStep("results");
+  }, []);
+
   // Escape aborts a run without losing what's been collected so far.
   useEffect(() => {
     if (step !== "collect") return;
@@ -223,6 +276,8 @@ export function PunchHarness({
             <TrackingChecklist statusRef={detection.landmarkStatus} />
           </>
         )}
+
+        <RecoverLastRun onRecover={recoverRun} />
 
         {calibration ? (
           <>
@@ -378,7 +433,43 @@ export function PunchHarness({
   }
 
   // ---------------- results ----------------
-  return <Results trials={trials} onRestart={startCollection} onFree={() => setStep("free")} />;
+  return (
+    <Results
+      trials={trials}
+      conditions={conditions}
+      onRestart={startCollection}
+      onFree={() => setStep("free")}
+    />
+  );
+}
+
+/**
+ * Offers back the last completed run. Shown on the calibration screen because
+ * that is where a reloaded phone lands, and the first instinct after losing a
+ * result is to start throwing punches again rather than to look for it.
+ */
+function RecoverLastRun({ onRecover }: { onRecover: (r: SavedRun) => void }) {
+  const [saved, setSaved] = useState(loadRun);
+  if (!saved) return null;
+  return (
+    <div className="recover">
+      <div className="muted small">
+        A completed run from {new Date(saved.savedAt).toLocaleString()} is still
+        saved on this device ({saved.trials.length} trials).
+      </div>
+      <div className="row">
+        <button onClick={() => onRecover(saved)}>View that result</button>
+        <button
+          onClick={() => {
+            clearRun();
+            setSaved(null);
+          }}
+        >
+          Discard
+        </button>
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -459,15 +550,23 @@ function FeatureTable({ event }: { event: PunchEvent }) {
 
 function Results({
   trials,
+  conditions,
   onRestart,
   onFree,
 }: {
   trials: Trial[];
+  conditions: RunConditions | null;
   onRestart: () => void;
   onFree: () => void;
 }) {
+  const [shareState, setShareState] = useState<string | null>(null);
   const evaluation = useMemo(() => evaluate(trials), [trials]);
-  const report = useMemo(() => formatReport(evaluation), [evaluation]);
+  const report = useMemo(
+    () =>
+      formatReport(evaluation) +
+      (conditions ? `\n${formatRunConditions(conditions)}` : ""),
+    [evaluation, conditions]
+  );
   const bars = checkBars(evaluation);
   const allPass = bars.every((b) => b.pass);
 
@@ -496,15 +595,26 @@ function Results({
       <pre className="report">{report}</pre>
 
       <div className="row">
+        {/* Share first: on a phone the report has to leave the device, and the
+            clipboard is not a route off it. */}
         <button
-          onClick={() => navigator.clipboard?.writeText(report)}
+          onClick={async () => {
+            const r = await shareReport(report);
+            setShareState(
+              r === "shared"
+                ? "shared"
+                : r === "copied"
+                  ? "copied to clipboard"
+                  : "could not share — select the text below and copy it"
+            );
+          }}
         >
-          Copy report
+          Share report
         </button>
         <button
           onClick={() =>
             navigator.clipboard?.writeText(
-              JSON.stringify({ evaluation, trials }, null, 2)
+              JSON.stringify({ evaluation, trials, conditions }, null, 2)
             )
           }
         >
@@ -513,6 +623,11 @@ function Results({
         <button onClick={onRestart}>Run again</button>
         <button onClick={onFree}>Free practice</button>
       </div>
+      {shareState && <p className="muted small">{shareState}</p>}
+      <p className="muted small">
+        This result is saved on this device and will be offered back on the
+        calibration screen if the page reloads.
+      </p>
     </div>
   );
 }
