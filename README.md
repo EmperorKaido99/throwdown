@@ -148,3 +148,49 @@ still an open question. That's the thing being answered next.
 Dependencies are kept license-clean: MediaPipe is Apache-2.0. Copyleft
 (AGPL-3.0) pose models are deliberately avoided. See
 [`docs/05-TECH-SETUP-AND-RISK-LOG.md`](docs/05-TECH-SETUP-AND-RISK-LOG.md).
+
+---
+
+## Development Workflow (D5)
+
+All development follows the **D5 agentic workflow** with continuous progress tracking.
+
+| Command | Description |
+|---------|-------------|
+| `StartTask SB-XXXX` | Start a new task through the D5 phases |
+| `ReviewTasks` | Review all incomplete tasks and resume where you left off |
+
+The five phases are **Define → Discover → Deliver → Demonstrate → Document**.
+Deliver and Demonstrate each have a hard stop for human approval.
+
+> The D5 workflow governs *how* a unit of work proceeds. It does not override
+> `CLAUDE.md` and `docs/01`–`05`, which govern *what* may be built and in what
+> order. A ticket asking for networking before Milestone 1 has a measured
+> confusion matrix should be objected to in the Define phase, not planned.
+
+### Agent Configuration
+
+| File | Purpose |
+|------|--------|
+| [`CLAUDE.md`](CLAUDE.md) | Project rules, non-negotiable technical decisions, current status |
+| [`.github/copilot-instructions.md`](.github/copilot-instructions.md) | D5 workflow definition, task tracking, phase gates |
+| [`agents.md`](agents.md) | Behavioral guidelines — think first, simplicity, surgical changes |
+| [`memorybank/project-context.md`](memorybank/project-context.md) | Tech stack rules, coding conventions, anti-patterns |
+
+### Documentation (Memory Bank)
+
+| File | Contents |
+|------|----------|
+| [`memorybank/architecture.md`](memorybank/architecture.md) | Module map, data flow, load-bearing invariants |
+| [`memorybank/features.md`](memorybank/features.md) | Feature list with **measured** status, and what is not built |
+| [`memorybank/integrations.md`](memorybank/integrations.md) | External services (none yet) and browser APIs relied on |
+| [`memorybank/setup.md`](memorybank/setup.md) | Local setup, commands, URL flags, how to take a valid measurement |
+| [`memorybank/ticket-progress.md`](memorybank/ticket-progress.md) | Status tracker for all `SB` tickets across sessions |
+| [`memorybank/changelog.md`](memorybank/changelog.md) | Ad-hoc changes outside task files |
+| [`memorybank/components/`](memorybank/components/) | Per-feature documentation (business rules, data flow, validation) |
+
+### Component Documentation
+
+| Component | Doc |
+|---|---|
+| _(template only — say "document components" to generate these)_ | [`memorybank/components/_index.md`](memorybank/components/_index.md) |

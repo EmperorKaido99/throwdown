@@ -7,10 +7,18 @@
 
 import { chromium } from "playwright-core";
 
+/** The main menu sits in front of the harness; deep-link straight to it. */
+function withScreen(u) {
+  const url = new globalThis.URL(u);
+  url.searchParams.set("screen", "train");
+  return url.toString();
+}
+
+
 const BASE = process.env.BASE_URL ?? "http://localhost:5174";
 
 const OUT = process.argv[2] ?? "tools/out/milestone1.png";
-const URL = process.env.MEASURE_URL ?? BASE + "/";
+const URL = withScreen(process.env.MEASURE_URL ?? BASE + "/");
 
 const browser = await chromium.launch({
   channel: "chrome",

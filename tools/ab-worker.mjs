@@ -21,6 +21,14 @@
 
 import { chromium } from "playwright-core";
 
+/** The main menu sits in front of the harness; deep-link straight to it. */
+function withScreen(u) {
+  const url = new globalThis.URL(u);
+  url.searchParams.set("screen", "train");
+  return url.toString();
+}
+
+
 const BASE = process.env.MEASURE_BASE ?? "http://localhost:4173/";
 const SECONDS = Number(process.argv[2] ?? 30);
 const REPEATS = Number(process.env.REPEATS ?? 2);
@@ -43,7 +51,7 @@ async function runCondition(useWorker) {
   const page = await context.newPage();
   page.on("pageerror", (e) => console.log(`  [pageerror] ${e.message}`));
 
-  await page.goto(`${BASE}?worker=${useWorker ? 1 : 0}`, {
+  await page.goto(withScreen(`${BASE}?worker=${useWorker ? 1 : 0}`), {
     waitUntil: "domcontentloaded",
   });
   await page.bringToFront();

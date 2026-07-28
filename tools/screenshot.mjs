@@ -23,7 +23,7 @@ const context = await browser.newContext({
   viewport: { width: 1360, height: 800 },
 });
 const page = await context.newPage();
-await page.goto(BASE + "/", { waitUntil: "domcontentloaded" });
+await page.goto(BASE + "/?screen=train", { waitUntil: "domcontentloaded" });
 await page.bringToFront();
 await page.getByRole("button", { name: /enable camera/i }).click();
 await page.waitForFunction(

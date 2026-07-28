@@ -23,7 +23,15 @@
 
 import { chromium } from "playwright-core";
 
-const URL = process.env.MEASURE_URL ?? "http://localhost:5174/";
+/** The main menu sits in front of the harness; deep-link straight to it. */
+function withScreen(u) {
+  const url = new globalThis.URL(u);
+  url.searchParams.set("screen", "train");
+  return url.toString();
+}
+
+
+const URL = withScreen(process.env.MEASURE_URL ?? "http://localhost:5174/");
 const DURATION_S = Number(process.argv[2] ?? 25);
 
 const browser = await chromium.launch({

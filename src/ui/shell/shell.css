@@ -1,0 +1,356 @@
+/* Shell chrome: main menu, screen header, and the non-camera screens.
+   Camera-stage layout stays in App.css.
+
+   Mobile-first. The layout is single-column by default and only widens at
+   >=900px, because the narrow case is the one that breaks — a phone in portrait
+   with a 4:3 camera stage has very little room left for a control panel. */
+
+.shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* ---------- main menu ---------- */
+
+.menu {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2rem;
+  padding: 2rem 1.25rem calc(2rem + env(safe-area-inset-bottom));
+  max-width: 34rem;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.menu-head h1 {
+  margin: 0;
+  font-size: clamp(2.25rem, 9vw, 3.25rem);
+  letter-spacing: -0.03em;
+}
+
+.menu-tag {
+  margin: 0.35rem 0 0;
+  color: #7a8699;
+  font-size: 0.95rem;
+}
+
+.menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.menu-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: left;
+  padding: 1rem 1.1rem;
+  min-height: 60px;
+  border-radius: 12px;
+  border: 1px solid #212c3a;
+  background: #10161f;
+  color: #e6edf5;
+  cursor: pointer;
+  font: inherit;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.menu-item:hover,
+.menu-item:focus-visible {
+  background: #18202c;
+  border-color: #2f3a4d;
+}
+
+.menu-item-label {
+  font-size: 1.15rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.menu-item-detail {
+  color: #7a8699;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.menu-item-locked .menu-item-label {
+  color: #9aa7ba;
+}
+
+.menu-badge {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid #3a3020;
+  background: #241d10;
+  color: #d9a441;
+  font-weight: 600;
+}
+
+.menu-foot {
+  color: #5d6878;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.menu-foot p {
+  margin: 0;
+}
+
+/* ---------- screen header ---------- */
+
+.shell-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  padding-top: calc(0.75rem + env(safe-area-inset-top));
+  border-bottom: 1px solid #1a2230;
+  background: #0d121a;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.shell-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  padding: 0 0.85rem;
+  border-radius: 8px;
+  border: 1px solid #2f3a4d;
+  background: #1b2430;
+  color: #e6edf5;
+  font: inherit;
+  cursor: pointer;
+}
+
+.shell-back:hover {
+  background: #243043;
+}
+
+.shell-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.shell-cam {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  color: #7a8699;
+}
+
+.shell-cam-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #d9483f;
+  box-shadow: 0 0 0 3px rgba(217, 72, 63, 0.18);
+}
+
+.shell-cam-stop {
+  min-height: 36px;
+  padding: 0 0.7rem;
+  border-radius: 8px;
+  border: 1px solid #2f3a4d;
+  background: transparent;
+  color: #9aa7ba;
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.shell-cam-stop:hover {
+  background: #1b2430;
+  color: #e6edf5;
+}
+
+/* ---------- generic screen body ---------- */
+
+.screen {
+  flex: 1;
+  width: 100%;
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem calc(3rem + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+}
+
+.screen h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.5rem;
+  letter-spacing: -0.02em;
+}
+
+.screen h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1rem;
+  color: #c6d2e2;
+}
+
+.screen-lead {
+  margin: 0 0 0.75rem;
+  color: #c6d2e2;
+  line-height: 1.6;
+}
+
+.screen-foot {
+  margin-top: 1.5rem;
+  padding: 0.9rem 1rem;
+  border-radius: 10px;
+  border: 1px solid #212c3a;
+  background: #10161f;
+  color: #c6d2e2;
+  line-height: 1.6;
+  font-size: 0.9rem;
+}
+
+.howto-section {
+  margin: 1.5rem 0;
+  padding-top: 1.25rem;
+  border-top: 1px solid #1a2230;
+}
+
+.howto-section:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+
+.howto-section p {
+  margin: 0 0 0.6rem;
+  line-height: 1.6;
+}
+
+.guide-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.btn {
+  min-height: 44px;
+  padding: 0 1rem;
+  border-radius: 8px;
+  border: 1px solid #2f3a4d;
+  background: #1b2430;
+  color: #e6edf5;
+  font: inherit;
+  cursor: pointer;
+}
+
+.btn:hover:not(:disabled) {
+  background: #243043;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.warn {
+  color: #d9a441;
+}
+
+/* ---------- fight gate list ---------- */
+
+.gates {
+  list-style: none;
+  margin: 1.25rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.gate-row {
+  padding: 0.9rem 1rem;
+  border-radius: 10px;
+  border: 1px solid #212c3a;
+  background: #10161f;
+  border-left-width: 3px;
+}
+
+.gate-blocked {
+  border-left-color: #d9483f;
+}
+
+.gate-waiting {
+  border-left-color: #2f3a4d;
+}
+
+.gate-done {
+  border-left-color: #3f9d5a;
+}
+
+.gate-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #5d6878;
+  margin-bottom: 0.35rem;
+}
+
+.gate-id {
+  color: #7a8699;
+}
+
+.gate-state {
+  margin-left: auto;
+}
+
+.gate-state-blocked {
+  color: #e07a72;
+}
+
+.gate-state-done {
+  color: #6bbd83;
+}
+
+.gate-title {
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+}
+
+.gate-note {
+  margin: 0;
+  color: #7a8699;
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+
+/* ---------- wide screens ---------- */
+
+@media (min-width: 900px) {
+  .guide-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-item {
+    transition: none;
+  }
+}

@@ -79,3 +79,14 @@ Shares the same base stack and several architectural instincts (client-side pose
 Detection has since been redesigned (risk log 14): it now measures the fist's excursion from its calibrated guard position rather than wrist-to-shoulder distance, treats a punch as a whole excursion episode, gates on sampling-invariant mean speed, and scales thresholds by the player's measured guard jitter. 53 unit tests pass including all four punch shapes at 10–30 FPS. **None of this has been validated on a real thrown punch** — run 2 is required before any conclusion.
 
 Expect hook/uppercut confusion — `docs/03-GESTURE-CLASSIFICATION.md` treats it as inherent to frontal-camera geometry, not an implementation bug. The escalation path is A → B (DTW) → C (small trained model), and if straight-vs-curved fails after B, stop and rescope with the project owner.
+
+**UI shell and agent harness added (2026-07-28).** Neither touches the perception layer or the milestone order.
+
+- A menu shell now wraps the debug harness: main menu → Train / Fight (locked) / How to play / Settings. The existing `PunchHarness` is reached unchanged from Train. Entries are deliberately punch-set agnostic, so a Milestone 1 descope does not force a UI rewrite. `ui/shell/FightScreen.tsx` states the real gates and exports a single `FIGHT_READY` flag for when Milestone 3 lands.
+- `?screen=train` deep-links past the menu; every script in `tools/` was updated to use it, since they all previously landed straight on the camera gate.
+- The D5 workflow harness (`agents.md`, `.github/copilot-instructions.md`, `memorybank/`) is installed. Ticket prefix `SB`. It governs how a task proceeds; it does **not** override this file or the risk-first order — see the precedence table in `.github/copilot-instructions.md`.
+
+**Two design questions answered in the risk log (2026-07-28), both raised by the project owner:**
+
+- **Risk log 15 — pro-boxer animation.** Recognition triggers a canned mocap animation; the avatar never mirrors raw pose. This is now the agreed approach and it is a risk *reducer* — it decouples how the game looks from how well tracking works. It does **not** help recognition: Approach A is hand-written thresholds with nothing to train, and a corpus of professional form measures the wrong population. Mocap projected through a virtual camera would be a genuinely better synthetic test bed than `synthetic.ts` (it foreshortens for free), but it costs days where run 2 costs twenty minutes. Do run 2 first.
+- **Risk log 16 — player height and reach asymmetry.** Torso normalization plus per-player calibration is exactly the design for this, but it is unmeasured. The taller player is disproportionately exposed to the weaker shoulder-width fallback for torso scale, because they get cropped at the hips first. **Run 2 should produce one confusion matrix per player, not one in total.** Real reach confers no in-game advantage by construction, and that must not later be "fixed".

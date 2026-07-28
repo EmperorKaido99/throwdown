@@ -251,6 +251,47 @@ Two distinct failures surfaced when moving inference into a worker, both worth k
 
 **Consequence for testing:** `worker.format` applies only to builds — Vite's dev server always serves module workers. So **the worker path cannot run under `npm run dev` at all**; it must be exercised against `npm run build && npm run preview`. Any future measurement of the worker path has to use the preview server.
 
+**15. (New, 2026-07-28) Can pro boxing mocap/animation data stand in for a player throwing labelled punches — and can the on-screen punch look like a pro threw it?**
+Status: **SPLIT — one half is an agreed design decision, the other half is a NO with a narrow, genuinely useful exception.** Raised by the project owner, who notes they are not a trained boxer but want the punches rendered on screen to look like a professional's.
+
+These are two different questions with different answers, and conflating them is the trap.
+
+**(a) Presentation — YES, and it is now the agreed design. Recognition triggers a canned animation; the avatar never mirrors raw pose.**
+
+The player's motion is a *trigger*. What renders is a pre-authored (ideally mocap-derived) professional punch animation for the recognised type and hand. Reasons this is the right call and not a compromise:
+
+- There is no reliable 3D to mirror. `perception/` deliberately reads no z (open question 1), and the measured pose rate is 15.1 FPS (open question 3). An avatar driven directly by that data would look exactly as noisy as the data is.
+- It decouples visual quality from tracking quality. Tracking noise stops being a *visual* defect and stays a *gameplay* one, which is the only place it can be measured and fixed.
+- It renders both players equally well regardless of body type, reach, framing or camera — see open question 16.
+- It composes with the two-stage punch-event mitigation in `04-NETWORKING-AND-NETCODE.md`: the wind-up frames of the canned animation are exactly what absorbs network and classification latency before the hit resolves.
+
+**Consequence:** the animation *set* is determined by the surviving punch set. If Milestone 1 forces a descope to three-way, or to a "swing" catch-all for curved punches, the animation list changes with it. So this stays blocked on Milestone 1 (ticket SB-007), consistent with the amended avatar scope in `01-ARCHITECTURE.md`.
+
+**(b) Recognition — NO, mocap cannot replace the measured run. But it has one real use, later.**
+
+- **There is nothing to train.** Approach A is hand-written geometric thresholds, not a learned model. Animation data has no input to feed.
+- **The distribution is wrong.** Detection thresholds must fire on the punches *these players actually throw*. A corpus of professional form measures a different population than an untrained player's hook, and the whole point of the run is to characterise the latter.
+- **It contains none of the noise that matters.** MediaPipe estimation error, landmark dropout, lighting, clothing, and the ~15 FPS sampling that already produced two false conclusions here (open questions 1 and 14, fix 4).
+
+**The narrow exception, and it is worth recording:** 3D mocap *projected through a virtual camera* placed at laptop-webcam height and distance would produce 2D landmark trajectories that **foreshorten for free**, because the motion is genuinely three-dimensional and genuinely viewed from the front. That is precisely what `synthetic.ts` cannot reproduce, and precisely the gap that let run 1's failure hide behind a green test suite. As a test bed it would be a real improvement on hand-authored paths.
+
+**Recommendation: do run 2 first anyway.** Building a retargeting-and-projection pipeline is days of work; run 2 is one person and roughly twenty minutes, and it answers the actual open question rather than a proxy for it. Revisit mocap projection if run 2 shows detection now works but *typing* is muddy — at that point a labelled trajectory corpus is exactly what Approach B (DTW templates) or C (a small trained model) needs, which is where the documented A → B → C escalation path already leads.
+
+**Licensing caveat:** any mocap or animation source must be licence-checked before it enters the repo, under the same rule that keeps Ultralytics YOLO-pose out. Asset licences (Mixamo's terms, CMU mocap, commercial packs) are a separate question from model licences and have not been investigated.
+
+**16. (New, 2026-07-28) Does a height and reach difference between the two players break detection or fairness?**
+Status: **DESIGNED FOR, NOT YET MEASURED.** Raised by the project owner: ~6'1" with a longer arm span, playing against a shorter friend.
+
+**Detection and classification — this is what the normalization is for.** Every threshold in `perception/` is torso-normalized, and calibration is per-player: guard position vector per hand, guard jitter, torso scale, and stance are all measured from the individual in front of that camera (open question 14, fixes 2 and 5). A punch is measured as excursion from *that player's own* guard, scaled by *that player's own* torso. A longer arm moving further in absolute terms should therefore produce a comparable normalized number. Both players must calibrate on their own machine; the numbers are personal and are not shared over the network.
+
+**Residual risk, and it falls on the taller player.** Torso scale prefers shoulder-to-hip distance and falls back to shoulder width when the hips are not visible. A taller player seated or standing close to a laptop webcam is the one who gets cropped at the hips first, and the shoulder-width fallback is the weaker measure — apparent shoulder width shrinks as a player blades into a boxing stance. So the taller player is disproportionately exposed to the less robust path. Mitigations already in place: the source used is recorded on each calibration and surfaced in the UI, and the framing requirement is now stated in the How to play screen. Not a fix — a known asymmetry to watch.
+
+**What is untested:** there is no confusion matrix for *any* body yet, let alone two. Cross-body generalisation is entirely unmeasured. **Concrete change to the measurement protocol: run 2 should be run by both players separately and produce two confusion matrices, not one.** If the numbers diverge materially between them, that is a finding about generalisation, and it arrives far more cheaply now than after the netcode is built on top of it.
+
+**Fairness — reach confers no in-game advantage, by construction.** Hits resolve in game space from discrete events plus head state, never from real-world arm length; a longer arm does not reach further in the simulation. This falls directly out of "only classified events cross the network" (`01-ARCHITECTURE.md`) and is deliberate. Recorded here so it is not later mistaken for a bug and "fixed" by leaking reach into hit resolution, which would make the game unfair *and* newly cheatable.
+
+**Presentation:** per open question 15(a), both avatars play the same canned animations, so the reach difference does not show on screen at all.
+
 ## Instruction for whoever (or whatever) is executing this plan
 
 When any of the above is investigated and resolved, update its status and findings in place rather than just proceeding silently — this file is meant to make the project's actual state of knowledge visible at a glance, not to be a one-time planning artifact that goes stale.

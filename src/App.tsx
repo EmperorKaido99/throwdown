@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useWebcam } from "./capture/useWebcam";
 import { usePoseTracking } from "./pose/usePoseTracking";
 import { PoseOverlay } from "./ui/PoseOverlay";
@@ -6,20 +6,44 @@ import { DebugHud } from "./ui/DebugHud";
 import { PunchHarness } from "./ui/PunchHarness";
 import { PunchGuide } from "./ui/PunchGuide";
 import { DodgeIndicator } from "./ui/DodgeIndicator";
+import { MainMenu } from "./ui/shell/MainMenu";
+import { HowToPlay } from "./ui/shell/HowToPlay";
+import { SettingsScreen } from "./ui/shell/SettingsScreen";
+import { FightScreen, FIGHT_READY } from "./ui/shell/FightScreen";
+import { SCREEN_TITLES, type Screen } from "./ui/shell/screens";
+import { loadSettings, saveSettings, type Settings } from "./config/settings";
 import { NEUTRAL_HEAD_STATE, type HeadState } from "./perception/dodgeDetector";
 import type { PunchType, Stance } from "./perception/punchTypes";
 import "./App.css";
+import "./ui/shell/shell.css";
 
-// Root view. Toggles between the Milestone 0 pose scaffold (webcam ->
-// MediaPipe landmarks -> debug overlay, with measured frame rate) and the
-// Milestone 1 punch harness. No networking yet — that follows the risk-first order.
+// Root view. A menu shell wraps the Milestone 0/1 debug harness, which is
+// reached unchanged from the Train screen. No networking yet — that follows the
+// risk-first order in docs/02-IMPLEMENTATION-PLAN.md.
+
+/**
+ * `?screen=train` deep-links past the menu. The diagnostic and measurement
+ * scripts in tools/ drive the app through Playwright and need to land on the
+ * harness they are measuring without knowing the menu's DOM.
+ */
+function initialScreen(): Screen {
+  const raw = new URLSearchParams(window.location.search).get("screen");
+  const known: Screen[] = ["menu", "train", "fight", "howto", "settings"];
+  return (known as string[]).includes(raw ?? "") ? (raw as Screen) : "menu";
+}
 
 export default function App() {
-  const [started, setStarted] = useState(false);
-  const [showRaw, setShowRaw] = useState(false);
-  const [mode, setMode] = useState<"pose" | "punch">("punch");
+  const [screen, setScreen] = useState<Screen>(initialScreen);
+  const [settings, setSettings] = useState<Settings>(loadSettings);
 
-  const { videoRef, status: camStatus, error: camError, info } = useWebcam(started);
+  // The camera latches on once the player enables it, rather than following the
+  // current screen: re-creating the PoseLandmarker costs seconds of WASM init
+  // and shader compilation, so bouncing to the menu and back must not pay it.
+  // The header shows an always-visible indicator and a stop control, because a
+  // webcam that stays live after you leave the screen has to be visible.
+  const [cameraArmed, setCameraArmed] = useState(false);
+
+  const { videoRef, status: camStatus, error: camError, info } = useWebcam(cameraArmed);
   const {
     poseRef,
     rawPoseRef,
@@ -30,7 +54,12 @@ export default function App() {
     delegate,
     errorMsg,
     resetStats,
-  } = usePoseTracking(videoRef, started && camStatus === "ready");
+  } = usePoseTracking(videoRef, cameraArmed && camStatus === "ready");
+
+  const updateSettings = useCallback((next: Settings) => {
+    setSettings(next);
+    saveSettings(next);
+  }, []);
 
   // Debug hook: lets measurement/diagnostic scripts inspect the live pose,
   // e.g. to find which landmark is failing a confidence gate.
@@ -39,6 +68,15 @@ export default function App() {
       poseRef.current;
   }, [poseRef]);
 
+  // Diagnostic scripts drive the app without a mouse; without this they would
+  // have to know the menu's DOM to reach the harness they actually measure.
+  useEffect(() => {
+    (window as unknown as Record<string, unknown>).__shadowboxGoto = (s: Screen) => {
+      setScreen(s);
+      if (s === "train") setCameraArmed(true);
+    };
+  }, []);
+
   // ?guides=1 renders the punch trajectory reference on its own, with no
   // camera or calibration. Useful for reviewing the diagrams, and for
   // screenshotting them in a diagnostic run.
@@ -46,82 +84,124 @@ export default function App() {
     return <GuideGallery />;
   }
 
-  if (!started) {
+  if (screen === "menu") {
     return (
-      <div className="gate">
-        <h1>Shadow Box</h1>
-        <p className="gate-sub">Milestone 0 — pose tracking scaffold</p>
-        <p className="gate-body">
-          Grants camera access, runs MediaPipe Pose Landmarker locally, and
-          measures the real pose sample rate on this machine. Nothing leaves the
-          browser.
-        </p>
-        <button className="gate-btn" onClick={() => setStarted(true)}>
-          Enable camera
-        </button>
+      <div className="shell">
+        <MainMenu
+          fightReady={FIGHT_READY}
+          onNavigate={(s) => {
+            setScreen(s);
+            if (s === "train") setCameraArmed(true);
+          }}
+        />
       </div>
     );
   }
 
   return (
-    <div className={`app ${mode === "punch" ? "app-wide" : ""}`}>
-      <div className="stage">
-        <video ref={videoRef} className="video" playsInline muted />
-        <PoseOverlay
-          poseRef={poseRef}
-          rawPoseRef={rawPoseRef}
-          mirrored
-          showRaw={showRaw}
-        />
-      </div>
-
-      <div className="panel">
-        <div className="modes">
-          <button
-            className={mode === "punch" ? "active" : ""}
-            onClick={() => setMode("punch")}
-          >
-            Milestone 1 — punches
-          </button>
-          <button
-            className={mode === "pose" ? "active" : ""}
-            onClick={() => setMode("pose")}
-          >
-            Milestone 0 — pose
-          </button>
-        </div>
-
-        {mode === "punch" && (
-          <PunchHarness poseRef={poseRef} enabled={poseStatus === "ready"} />
+    <div className="shell">
+      <header className="shell-head">
+        <button className="shell-back" onClick={() => setScreen("menu")}>
+          ← Menu
+        </button>
+        <h1 className="shell-title">{SCREEN_TITLES[screen]}</h1>
+        {cameraArmed && (
+          <div className="shell-cam">
+            <span className="shell-cam-dot" aria-hidden="true" />
+            <span>camera on</span>
+            <button
+              className="shell-cam-stop"
+              onClick={() => setCameraArmed(false)}
+            >
+              stop
+            </button>
+          </div>
         )}
+      </header>
 
-        <DebugHud
-          frameIntervalStats={frameIntervalStats}
-          inferenceStats={inferenceStats}
-          poseFoundRatio={poseFoundRatio}
-          poseStatus={poseStatus}
+      {screen === "fight" && <FightScreen />}
+      {screen === "howto" && <HowToPlay />}
+      {screen === "settings" && (
+        <SettingsScreen
+          settings={settings}
+          onChange={updateSettings}
           delegate={delegate}
-          camera={info}
-          onReset={resetStats}
         />
+      )}
 
-        <label className="toggle">
-          <input
-            type="checkbox"
-            checked={showRaw}
-            onChange={(e) => setShowRaw(e.target.checked)}
-          />
-          show unsmoothed skeleton (orange)
-        </label>
+      {screen === "train" &&
+        (!cameraArmed ? (
+          <CameraGate onEnable={() => setCameraArmed(true)} />
+        ) : (
+          <div className="app app-wide">
+            <div className="stage">
+              <video ref={videoRef} className="video" playsInline muted />
+              {settings.showSkeleton && (
+                <PoseOverlay
+                  poseRef={poseRef}
+                  rawPoseRef={rawPoseRef}
+                  mirrored
+                  showRaw={settings.showRawSkeleton}
+                />
+              )}
+            </div>
 
-        {camStatus === "denied" && (
-          <p className="err">
-            Camera permission denied. Allow access and reload.
-          </p>
-        )}
-        {camError && camStatus !== "denied" && <p className="err">{camError}</p>}
-        {errorMsg && <p className="err">pose: {errorMsg}</p>}
-      </div>
+            <div className="panel">
+              <PunchHarness poseRef={poseRef} enabled={poseStatus === "ready"} />
+
+              <DebugHud
+                frameIntervalStats={frameIntervalStats}
+                inferenceStats={inferenceStats}
+                poseFoundRatio={poseFoundRatio}
+                poseStatus={poseStatus}
+                delegate={delegate}
+                camera={info}
+                onReset={resetStats}
+              />
+
+              <label className="toggle">
+                <input
+                  type="checkbox"
+                  checked={settings.showRawSkeleton}
+                  onChange={(e) =>
+                    updateSettings({
+                      ...settings,
+                      showRawSkeleton: e.target.checked,
+                    })
+                  }
+                />
+                show unsmoothed skeleton (orange)
+              </label>
+
+              {camStatus === "denied" && (
+                <p className="err">
+                  Camera permission denied. Allow access and reload.
+                </p>
+              )}
+              {camError && camStatus !== "denied" && (
+                <p className="err">{camError}</p>
+              )}
+              {errorMsg && <p className="err">pose: {errorMsg}</p>}
+            </div>
+          </div>
+        ))}
+    </div>
+  );
+}
+
+function CameraGate({ onEnable }: { onEnable: () => void }) {
+  return (
+    <div className="gate">
+      <h1>Training</h1>
+      <p className="gate-sub">Milestones 0–2 — pose, punches, dodging</p>
+      <p className="gate-body">
+        Grants camera access, runs MediaPipe Pose Landmarker locally, and
+        measures the real pose sample rate on this machine. Nothing leaves the
+        browser.
+      </p>
+      <button className="gate-btn" onClick={onEnable}>
+        Enable camera
+      </button>
     </div>
   );
 }
