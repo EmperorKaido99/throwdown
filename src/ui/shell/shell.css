@@ -354,3 +354,21 @@
     transition: none;
   }
 }
+
+/* Collection-run controls. The abort target is deliberately large: on a phone
+   the player is across the room and Esc does not exist. */
+.abort-btn {
+  margin-top: 1rem;
+  min-height: 48px;
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid #3a2a2a;
+  background: #1d1416;
+  color: #e07a72;
+  font: inherit;
+  cursor: pointer;
+}
+
+.abort-btn:hover {
+  background: #271a1c;
+}

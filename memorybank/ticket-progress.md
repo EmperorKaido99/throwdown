@@ -34,4 +34,4 @@ risk-first and is **not** negotiable by ticket priority — see
 | SB-010 | Milestone 6 — rollback netcode | 📋 Not started | 2026-07-28 | Only if SB-009 feels acceptable first. |
 | SB-011 | Milestone 7 — internet play (STUN + TURN) | 📋 Not started | 2026-07-28 | Real hosting cost. Confirm it is wanted before starting. |
 | SB-012 | Milestone 8 — polish and fairness pass | 📋 Not started | 2026-07-28 | Includes hardware-asymmetry fairness. |
-| SB-013 | Mobile target decision + its own calibration/confusion matrix | 📋 Not started | 2026-07-28 | Risk log 7b. Laptop thresholds must not be assumed to transfer to phone framing. |
+| SB-013 | Mobile target decision + its own calibration/confusion matrix | 🚧 In Progress | 2026-07-28 | Risk log 7b. Run 2 is being taken on phones, so this is now live rather than hypothetical. Phone-run blockers fixed: spoken prompts, wake lock, touch abort, stage aspect from stream, HTTPS over LAN. **A phone pass is informative; a phone failure is ambiguous and needs a laptop run to disambiguate — not a DTW escalation.** |

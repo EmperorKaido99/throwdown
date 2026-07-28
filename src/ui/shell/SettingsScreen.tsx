@@ -1,5 +1,6 @@
 import { POSE_CONFIG } from "../../config/tuning";
 import { reloadWithWorker, type Settings } from "../../config/settings";
+import { speechSupported } from "../speech";
 
 interface Props {
   settings: Settings;
@@ -36,6 +37,25 @@ export function SettingsScreen({ settings, onChange, delegate }: Props) {
           />
           Also show the unsmoothed skeleton (orange)
         </label>
+      </section>
+
+      <section className="howto-section">
+        <h3>Measured runs</h3>
+        <label className="toggle">
+          <input
+            type="checkbox"
+            checked={settings.voicePrompts}
+            disabled={!speechSupported()}
+            onChange={(e) => set("voicePrompts", e.target.checked)}
+          />
+          Speak each prompt aloud
+        </label>
+        <p className="muted small">
+          Keep this on for a phone run. You will be standing too far back to
+          read the screen, and a prompt you had to guess at scores your guessing
+          rather than the classifier.
+          {!speechSupported() && " This browser has no speech synthesis."}
+        </p>
       </section>
 
       <section className="howto-section">

@@ -11,11 +11,18 @@ export interface Settings {
   showSkeleton: boolean;
   /** Additionally draw the unsmoothed skeleton in orange. */
   showRawSkeleton: boolean;
+  /**
+   * Speak each measured-run prompt aloud. Defaults ON: the player stands back
+   * in boxing range during a run, and on a phone the prompt is simply not
+   * readable from there. See ui/speech.ts.
+   */
+  voicePrompts: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   showSkeleton: true,
   showRawSkeleton: false,
+  voicePrompts: true,
 };
 
 export function loadSettings(): Settings {

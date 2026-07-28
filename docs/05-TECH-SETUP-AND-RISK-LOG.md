@@ -164,7 +164,28 @@ The diagrams are mirrored to match the webcam preview so the lead hand appears o
 **Tooling note:** the diagnostic scripts in `tools/` previously hard-coded `localhost:5173`. The Flap project also runs on that port, so Shadow Box lands on 5174 when both are up and a diagnostic silently screenshotted the wrong application. All tools now honour `BASE_URL`. Related: do not use a broad `pkill -f vite` to restart the dev server — it will kill other projects' servers too.
 
 **7b. (New, 2026-07-22) Is mobile a supported target?**
-Status: OPEN — the project owner intends to test on mobile, which `02-IMPLEMENTATION-PLAN.md` previously listed as a v1 non-goal. Not yet committed. The classifier's geometric thresholds are calibrated against laptop-webcam framing; phone framing (portrait, closer, different FOV and camera height) would need its own calibration pass and its own measured confusion matrix. Do not assume laptop thresholds transfer.
+Status: OPEN as a *scope* question — but **no longer hypothetical as a measurement question.** The project owner intends to test on mobile, which `02-IMPLEMENTATION-PLAN.md` previously listed as a v1 non-goal. Not yet committed. The classifier's geometric thresholds are calibrated against laptop-webcam framing; phone framing (portrait, closer, different FOV and camera height) would need its own calibration pass and its own measured confusion matrix. Do not assume laptop thresholds transfer.
+
+**Update 2026-07-28: run 2 is being taken on phones, by both players.** That is a legitimate run and worth doing, but it changes how the result may be read, and the asymmetry matters more than anything else in this entry:
+
+- **A pass is strongly informative.** If the pre-set bars clear on a phone, they clear on a harder setup than the one the thresholds were reasoned for, and Milestone 1 is in better shape than hoped.
+- **A failure is ambiguous and must NOT be recorded as "Approach A failed."** It would be indistinguishable between a genuine classifier problem and a framing/geometry problem introduced by the device. That is exactly the ambiguity that made run 1 nearly produce the wrong conclusion (see entry 1), and the mitigation is the same: disambiguate before concluding. If the phone run fails, the next step is a laptop run — even a short one at 10 reps per type — not an escalation to DTW.
+
+**Phone-specific risks, none yet measured:**
+- **Portrait framing squeezes lateral travel.** A hook's fist travels sideways; a 9:16 frame is narrow, and a wrist leaving the frame degrades to a low-confidence or extrapolated landmark. Landscape is the safer orientation for hooks, at the cost of needing more distance to keep the hips in shot.
+- **Camera height and tilt.** A propped phone is usually low and angled up. An upward tilt compresses vertical travel in the image, and vertical travel is the uppercut's whole signal. A laptop webcam is roughly chest-to-eye height and near level; a phone on a table is not.
+- **Wider field of view.** Phone front cameras are typically wider than laptop webcams, which increases perspective distortion toward the edges and changes how sharply foreshortening varies with distance.
+- **Thermal throttling.** A measured run is ~4.5 minutes of continuous GPU inference. A phone may start faster than the 15.1 FPS dev laptop and degrade during the run. Sampling rate is not a constant here; check the HUD at the start and the end.
+- **Browser.** Android Chrome is the safer bet. On iOS Safari the GPU delegate may silently fall back to CPU — the HUD reports which is engaged, and it should be recorded.
+
+**Mitigations built 2026-07-28 (all phone-driven, all in-repo):**
+- **Spoken prompts** (`src/ui/speech.ts`). The protocol runs on a 1.4 s/2.0 s cadence with the player standing back in boxing range, where a phone screen is unreadable. A prompt the player had to guess at scores their guessing, not the classifier — the same validity failure entry 12 addressed for punch *form*. Default on.
+- **Screen wake lock** (`src/ui/useWakeLock.ts`). A phone auto-locks well inside 4.5 minutes; the camera track then stops and every remaining prompt is silently scored as a miss. This would have voided a run without announcing itself.
+- **Touch abort.** `Esc` was the only way to stop a run, and phones have no `Esc`.
+- **Stage aspect ratio now follows the real stream.** The stage was a fixed 4:3 box with `object-fit: cover`, so a portrait phone stream was cropped *on screen* while MediaPipe kept reading the full frame — the player would have framed themselves against a view that was not the tracked one.
+- **HTTPS over LAN** (`npm run dev:lan`). `getUserMedia` is secure-context only, so a phone hitting `http://192.168.x.x:5174` gets no camera and no useful error.
+
+**Record alongside the matrix, per player:** device model, browser, orientation, camera height and tilt, pose FPS at the start and end of the run, the delegate actually engaged, and `calibration.scaleSource`. Without those the numbers cannot be compared to a later laptop run, and comparing them is the entire point.
 
 **3. What is the real in-browser pose-tracking frame rate on target hardware, for two simultaneous local+remote pose streams?**
 Status: PARTIALLY RESOLVED (2026-07-22, Milestone 0) — measured on the dev machine; **result is below the plan's 24–30 FPS floor**. Not yet measured across a range of hardware.

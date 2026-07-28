@@ -1,5 +1,20 @@
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
+import basicSsl from "@vitejs/plugin-basic-ssl";
+
+/**
+ * HTTPS for LAN testing, enabled with HTTPS=1.
+ *
+ * getUserMedia only runs in a secure context. localhost counts as one, so a
+ * laptop never needs this — but a phone reaching the dev server at
+ * http://192.168.x.x:5174 does not, and the camera is then unavailable with no
+ * useful error. A self-signed certificate is enough: the phone shows a warning
+ * once, and past it the origin is secure.
+ *
+ * Off by default because the certificate warning is pure friction for the
+ * localhost case, which is most runs.
+ */
+const HTTPS = process.env.HTTPS === "1";
 
 /**
  * Lets the pose Web Worker load MediaPipe's WASM runtime in dev.
@@ -33,7 +48,7 @@ function mediapipeWasmDevFix(): Plugin {
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), mediapipeWasmDevFix()],
+  plugins: [react(), mediapipeWasmDevFix(), ...(HTTPS ? [basicSsl()] : [])],
   worker: {
     /**
      * Build the pose worker as a classic (IIFE) worker, not an ES module.

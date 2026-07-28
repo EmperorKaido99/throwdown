@@ -66,6 +66,38 @@ corrupt. Before recording any number:
 Record the number in `docs/05-TECH-SETUP-AND-RISK-LOG.md` whether or not it
 meets the bar.
 
+## Running on a phone
+
+`getUserMedia` only works in a secure context. `localhost` counts; a LAN IP does
+not. A phone pointed at `http://192.168.x.x:5174` gets no camera and no useful
+error message, which is the first thing that stops a phone session.
+
+```bash
+npm run dev:lan       # HTTPS + --host, prints a Network: https://192.168.x.x:5174 URL
+```
+
+On the phone, open that Network URL and accept the self-signed certificate
+warning once. Both devices must be on the same Wi-Fi.
+
+If the certificate warning is refused (some in-app browsers block it), the
+Android fallback is `chrome://flags/#unsafely-treat-insecure-origin-as-secure`,
+adding the plain `http://192.168.x.x:5174` origin.
+
+Before a measured run on a phone:
+
+| Check | Why |
+|---|---|
+| Prop the phone at roughly chest height, as level as possible | An upward tilt compresses vertical travel, which is the uppercut's whole signal |
+| Prefer landscape | A hook travels sideways and a portrait frame is narrow; a wrist leaving the frame degrades the landmark |
+| Stand back until your hips are in shot | Otherwise torso scale falls back to shoulder width, which is the weaker measure |
+| Leave "speak each prompt aloud" on | You cannot read the screen from boxing range; a guessed prompt corrupts the label side of the matrix |
+| Check the HUD's FPS at the start **and** the end | A ~4.5 minute run can thermally throttle partway through |
+| Note the delegate (GPU vs CPU) | iOS Safari may silently fall back to CPU |
+
+The screen wake lock is requested automatically while the camera is on — a
+phone that auto-locks mid-run stops the camera and scores every remaining
+prompt as a miss.
+
 ## Do not
 
 - Do not run a broad `pkill -f vite` — it kills the sibling Flap project's dev server too.

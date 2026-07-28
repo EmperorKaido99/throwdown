@@ -13,6 +13,8 @@ import { PERCEPTION_CONFIG } from "../config/tuning";
 import { PunchGuide, PunchGuideGrid } from "./PunchGuide";
 import { DodgeIndicator } from "./DodgeIndicator";
 import { DetectionDiagnostics } from "./DetectionDiagnostics";
+import { cancelSpeech, primeSpeech, speak, speechSupported } from "./speech";
+import { useWakeLock } from "./useWakeLock";
 
 // Milestone 1 harness: webcam -> landmarks -> classifier -> on-screen label,
 // plus a guided protocol that produces a real confusion matrix.
@@ -38,9 +40,17 @@ const THROW_MS = 2000;
 interface Props {
   poseRef: React.RefObject<PoseFrame | null>;
   enabled: boolean;
+  /** Speak each prompt aloud. Required in practice on a phone — see speech.ts. */
+  voicePrompts: boolean;
+  onVoicePromptsChange: (next: boolean) => void;
 }
 
-export function PunchHarness({ poseRef, enabled }: Props) {
+export function PunchHarness({
+  poseRef,
+  enabled,
+  voicePrompts,
+  onVoicePromptsChange,
+}: Props) {
   const [step, setStep] = useState<Step>("calibrate");
   const [stance, setStance] = useState<Stance>("orthodox");
   const [repsPerType, setRepsPerType] = useState(20);
@@ -94,8 +104,16 @@ export function PunchHarness({ poseRef, enabled }: Props) {
     setWindowPhase("ready");
     captured.current = null;
     capturing.current = false;
+    // iOS Safari only permits synthesis that was started from a user gesture,
+    // and this click is the last one before the player steps back out of reach.
+    if (voicePrompts) primeSpeech();
     setStep("collect");
-  }, []);
+  }, [voicePrompts]);
+
+  // The player never touches the device during a run, which on a phone is long
+  // enough to hit auto-lock. Held across the whole harness, not just the run,
+  // so calibration and free practice do not lock out either.
+  useWakeLock(enabled);
 
   useEffect(() => {
     if (step !== "collect") return;
@@ -107,6 +125,9 @@ export function PunchHarness({ poseRef, enabled }: Props) {
     if (windowPhase === "ready") {
       capturing.current = false;
       captured.current = null;
+      // Announce at the START of the ready window, so the name has finished
+      // speaking before the throw window opens.
+      if (voicePrompts && schedule[trialIndex]) speak(schedule[trialIndex]);
       const id = setTimeout(() => setWindowPhase("throw"), READY_MS);
       return () => clearTimeout(id);
     }
@@ -114,6 +135,7 @@ export function PunchHarness({ poseRef, enabled }: Props) {
     // Throw window open: start listening.
     capturing.current = true;
     captured.current = null;
+    if (voicePrompts) speak("go", 1.4);
 
     // Throw window closed — record whatever was (or wasn't) detected.
     const id = setTimeout(() => {
@@ -133,11 +155,18 @@ export function PunchHarness({ poseRef, enabled }: Props) {
       setWindowPhase("ready");
     }, THROW_MS);
     return () => clearTimeout(id);
-  }, [step, windowPhase, trialIndex, schedule]);
+  }, [step, windowPhase, trialIndex, schedule, voicePrompts]);
 
   const abortCollection = useCallback(() => {
+    cancelSpeech();
     setStep(trials.length > 0 ? "results" : "free");
   }, [trials.length]);
+
+  // A run that ends normally must not leave a queued "go" talking over the
+  // results screen.
+  useEffect(() => {
+    if (step !== "collect") cancelSpeech();
+  }, [step]);
 
   // Escape aborts a run without losing what's been collected so far.
   useEffect(() => {
@@ -294,6 +323,20 @@ export function PunchHarness({ poseRef, enabled }: Props) {
             style={{ width: 60 }}
           />
         </label>
+        <label className="toggle">
+          <input
+            type="checkbox"
+            checked={voicePrompts}
+            disabled={!speechSupported()}
+            onChange={(e) => onVoicePromptsChange(e.target.checked)}
+          />
+          speak each prompt aloud
+        </label>
+        <p className="muted small">
+          {speechSupported()
+            ? "Leave this on for a phone run — you will be too far back to read the screen, and a prompt you had to guess at scores your guessing, not the classifier."
+            : "This browser has no speech synthesis, so prompts are visual only. Check you can read them from where you will be standing before starting a run."}
+        </p>
       </div>
     );
   }
@@ -305,9 +348,7 @@ export function PunchHarness({ poseRef, enabled }: Props) {
     const next = schedule[trialIndex + 1];
     return (
       <div className="harness collect">
-        <div className="muted">
-          {done} / {schedule.length} · press Esc to stop early
-        </div>
+        <div className="muted">{done} / {schedule.length}</div>
         <div className="prompt-type">{current?.toUpperCase()}</div>
         <div className="muted">
           {PROMPT_HAND[current] === "lead" ? "lead hand" : "rear hand"}
@@ -325,6 +366,13 @@ export function PunchHarness({ poseRef, enabled }: Props) {
         {next && next !== current && (
           <div className="muted small next-up">next up: {next}</div>
         )}
+
+        {/* Esc is unreachable on a phone, where the player is also too far away
+            to read anything — hence a large touch target and the spoken cues. */}
+        <button className="abort-btn" onClick={abortCollection}>
+          Stop run{trials.length > 0 ? ` (keep ${trials.length})` : ""}
+        </button>
+        <div className="muted small">or press Esc</div>
       </div>
     );
   }

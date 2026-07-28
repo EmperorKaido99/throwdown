@@ -129,62 +129,90 @@ export default function App() {
         />
       )}
 
-      {screen === "train" &&
-        (!cameraArmed ? (
-          <CameraGate onEnable={() => setCameraArmed(true)} />
-        ) : (
-          <div className="app app-wide">
-            <div className="stage">
-              <video ref={videoRef} className="video" playsInline muted />
-              {settings.showSkeleton && (
-                <PoseOverlay
-                  poseRef={poseRef}
-                  rawPoseRef={rawPoseRef}
-                  mirrored
-                  showRaw={settings.showRawSkeleton}
-                />
-              )}
-            </div>
-
-            <div className="panel">
-              <PunchHarness poseRef={poseRef} enabled={poseStatus === "ready"} />
-
-              <DebugHud
-                frameIntervalStats={frameIntervalStats}
-                inferenceStats={inferenceStats}
-                poseFoundRatio={poseFoundRatio}
-                poseStatus={poseStatus}
-                delegate={delegate}
-                camera={info}
-                onReset={resetStats}
+      {/* The train view stays mounted once armed and is hidden rather than
+          unmounted on other screens. Unmounting it would throw away the
+          player's calibration, so a glance at How to play mid-session would
+          cost a recalibration — and on a phone the player has to walk back to
+          the device to redo it. */}
+      {screen === "train" && !cameraArmed && (
+        <CameraGate onEnable={() => setCameraArmed(true)} />
+      )}
+      {cameraArmed && (
+        <div
+          className="app app-wide"
+          hidden={screen !== "train"}
+          style={screen === "train" ? undefined : { display: "none" }}
+        >
+          <div
+            className="stage"
+            // Match the stage to the stream's real shape. A phone commonly
+            // hands back a portrait stream, and a fixed 4:3 box crops it on
+            // screen while MediaPipe still reads the whole frame — so the
+            // player would be framing themselves against a view that is not
+            // what is being tracked.
+            style={
+              info?.width && info?.height
+                ? { aspectRatio: `${info.width} / ${info.height}` }
+                : undefined
+            }
+          >
+            <video ref={videoRef} className="video" playsInline muted />
+            {settings.showSkeleton && (
+              <PoseOverlay
+                poseRef={poseRef}
+                rawPoseRef={rawPoseRef}
+                mirrored
+                showRaw={settings.showRawSkeleton}
               />
-
-              <label className="toggle">
-                <input
-                  type="checkbox"
-                  checked={settings.showRawSkeleton}
-                  onChange={(e) =>
-                    updateSettings({
-                      ...settings,
-                      showRawSkeleton: e.target.checked,
-                    })
-                  }
-                />
-                show unsmoothed skeleton (orange)
-              </label>
-
-              {camStatus === "denied" && (
-                <p className="err">
-                  Camera permission denied. Allow access and reload.
-                </p>
-              )}
-              {camError && camStatus !== "denied" && (
-                <p className="err">{camError}</p>
-              )}
-              {errorMsg && <p className="err">pose: {errorMsg}</p>}
-            </div>
+            )}
           </div>
-        ))}
+
+          <div className="panel">
+            <PunchHarness
+              poseRef={poseRef}
+              enabled={poseStatus === "ready"}
+              voicePrompts={settings.voicePrompts}
+              onVoicePromptsChange={(v) =>
+                updateSettings({ ...settings, voicePrompts: v })
+              }
+            />
+
+            <DebugHud
+              frameIntervalStats={frameIntervalStats}
+              inferenceStats={inferenceStats}
+              poseFoundRatio={poseFoundRatio}
+              poseStatus={poseStatus}
+              delegate={delegate}
+              camera={info}
+              onReset={resetStats}
+            />
+
+            <label className="toggle">
+              <input
+                type="checkbox"
+                checked={settings.showRawSkeleton}
+                onChange={(e) =>
+                  updateSettings({
+                    ...settings,
+                    showRawSkeleton: e.target.checked,
+                  })
+                }
+              />
+              show unsmoothed skeleton (orange)
+            </label>
+
+            {camStatus === "denied" && (
+              <p className="err">
+                Camera permission denied. Allow access and reload.
+              </p>
+            )}
+            {camError && camStatus !== "denied" && (
+              <p className="err">{camError}</p>
+            )}
+            {errorMsg && <p className="err">pose: {errorMsg}</p>}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

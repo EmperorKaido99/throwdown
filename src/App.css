@@ -335,24 +335,34 @@
   padding: 1.4rem 0.9rem;
 }
 
+/* Everything in the collection view is sized for a player standing back in
+   boxing range, not for someone at the keyboard. On a phone that distance makes
+   text unreadable at any practical size, which is why the prompts are also
+   spoken (ui/speech.ts) — but scaling to the viewport and using a full-width
+   colour block for the throw cue still buys real legibility, and colour carries
+   much further than glyphs do. */
 .prompt {
-  font-size: 1.5rem;
+  font-size: clamp(1.5rem, 7vw, 2rem);
   font-weight: 600;
   margin: 0.5rem 0;
+  padding: 0.35rem 0;
+  border-radius: 10px;
   color: #7a8699;
 }
 
 .prompt.throw {
-  color: #4ade80;
-  font-size: 2.2rem;
+  color: #06210f;
+  background: #4ade80;
+  font-size: clamp(2.2rem, 11vw, 3rem);
+  letter-spacing: 0.08em;
 }
 
 .prompt-type {
-  font-size: 3rem;
+  font-size: clamp(3rem, 19vw, 5rem);
   font-weight: 800;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.03em;
   color: #e6edf5;
-  line-height: 1.1;
+  line-height: 1.05;
 }
 
 .verdict {
