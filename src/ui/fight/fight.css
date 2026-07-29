@@ -1,0 +1,293 @@
+/* The fight screen. Mobile-first like the rest of the shell — this has to be
+   playable on the phones the project is actually being tested on. */
+
+.fight {
+  width: 100%;
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: 1rem 1rem calc(2rem + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+/* ---------- HUD ---------- */
+
+.fight-hud {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.fight-clock {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: clamp(1.4rem, 6vw, 2rem);
+  font-weight: 700;
+  color: #e6edf5;
+  min-width: 2.5ch;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.hp-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #7a8699;
+  margin-bottom: 0.25rem;
+}
+
+.hp-right .hp-label {
+  justify-content: flex-end;
+}
+
+.hp-stun {
+  color: #fbbf24;
+  font-weight: 700;
+}
+
+.hp-track {
+  height: 14px;
+  border-radius: 7px;
+  background: #1a2230;
+  border: 1px solid #263141;
+  overflow: hidden;
+}
+
+.hp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4ade80, #22c55e);
+  transition: width 120ms linear;
+}
+
+.hp-right .hp-track {
+  transform: scaleX(-1);
+}
+
+.hp-low {
+  background: linear-gradient(90deg, #f87171, #dc2626);
+}
+
+/* ---------- ring ---------- */
+
+.fight-ring {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.5rem 1rem 0;
+  min-height: clamp(220px, 34vh, 400px);
+  border-radius: 14px;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 70% at 50% 100%, #1c2637 0%, #0f151e 60%, #0b0f14 100%);
+  border: 1px solid #212c3a;
+}
+
+/* Canvas floor, so the fighters read as standing on something. */
+.fight-ring::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 38%;
+  background: linear-gradient(180deg, rgba(125, 211, 252, 0.05), rgba(125, 211, 252, 0));
+  border-top: 1px solid #2a3648;
+  pointer-events: none;
+}
+
+.fighter {
+  position: relative;
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  padding-bottom: 6%;
+}
+
+.fighter-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: transform 90ms ease-out;
+  will-change: transform;
+}
+
+.fighter-head {
+  width: clamp(34px, 9vw, 54px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #3d4c63;
+  border: 2px solid #55688a;
+}
+
+.fighter-torso {
+  width: clamp(52px, 14vw, 84px);
+  height: clamp(70px, 19vw, 116px);
+  margin-top: 6px;
+  border-radius: 14px 14px 8px 8px;
+  background: #2c384b;
+  border: 2px solid #3d4c63;
+}
+
+.fighter-right .fighter-head,
+.fighter-right .fighter-torso {
+  background: #4a3340;
+  border-color: #6b4757;
+}
+
+.fighter-right .fighter-head {
+  background: #5c3f4e;
+}
+
+.is-throwing .fighter-torso {
+  box-shadow: 0 0 0 3px rgba(125, 211, 252, 0.35);
+}
+
+.is-stunned .fighter-head {
+  animation: stagger 220ms ease-in-out infinite alternate;
+}
+
+@keyframes stagger {
+  from {
+    transform: translateX(-4px) rotate(-4deg);
+  }
+  to {
+    transform: translateX(4px) rotate(4deg);
+  }
+}
+
+.fighter-flash {
+  position: absolute;
+  top: 4%;
+  font-size: clamp(1.3rem, 6vw, 2rem);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  animation: floatUp 450ms ease-out forwards;
+  pointer-events: none;
+}
+
+.fighter-flash.hit {
+  color: #f87171;
+}
+
+.fighter-flash.miss {
+  color: #7dd3fc;
+}
+
+@keyframes floatUp {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-28px);
+  }
+}
+
+/* ---------- result ---------- */
+
+.fight-result {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: rgba(11, 15, 20, 0.86);
+  backdrop-filter: blur(2px);
+}
+
+.fight-result-title {
+  font-size: clamp(1.8rem, 9vw, 3rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #e6edf5;
+}
+
+/* ---------- controls ---------- */
+
+.fight-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  font-size: 0.8rem;
+  color: #9aa7ba;
+  line-height: 1.8;
+}
+
+.fight-controls p {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.fight-controls kbd {
+  display: inline-block;
+  min-width: 1.4em;
+  padding: 0.1em 0.35em;
+  text-align: center;
+  border-radius: 4px;
+  border: 1px solid #3d4c63;
+  border-bottom-width: 2px;
+  background: #1b2430;
+  color: #e6edf5;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+}
+
+/* ---------- mode select ---------- */
+
+.mode-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin: 1.25rem 0;
+}
+
+.mode-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: left;
+  padding: 1rem 1.1rem;
+  min-height: 60px;
+  border-radius: 12px;
+  border: 1px solid #212c3a;
+  background: #10161f;
+  color: #e6edf5;
+  cursor: pointer;
+  font: inherit;
+}
+
+.mode-item:hover:not(:disabled) {
+  background: #18202c;
+  border-color: #2f3a4d;
+}
+
+.mode-item:disabled {
+  cursor: default;
+  opacity: 0.75;
+}
+
+.mode-item-label {
+  font-size: 1.1rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.mode-item-detail {
+  color: #7a8699;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}

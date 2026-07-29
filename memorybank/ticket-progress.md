@@ -27,7 +27,7 @@ risk-first and is **not** negotiable by ticket priority — see
 | SB-003 | Settle the Web Worker A/B (`npm run measure:ab`) | 🚫 Blocked | 2026-07-28 | Needs a person standing in frame for the whole run, against `build && preview` (not `dev` — risk log 9). |
 | SB-004 | UI shell, main menu, mobile-responsive layout | ✅ Done | 2026-07-28 | Menu → Train / Measure / How to play / Settings / Fight (locked). Deliberately punch-set agnostic. |
 | SB-005 | Agent harness (D5 + memorybank) | ✅ Done | 2026-07-28 | This scaffolding. |
-| SB-006 | Milestone 3 — deterministic hot-seat fight simulation | 🚧 In Progress | 2026-07-29 | Core sim built and tested (`fightSim.ts`, 15 tests). Deliberately started ahead of SB-001: it is a pure function of (state, input) and does not depend on where input comes from, nor on which punch types survive. Still needs a keyboard-driven hot-seat view to be playable. |
+| SB-006 | Milestone 3 — deterministic hot-seat fight simulation | 🧪 Testing | 2026-07-29 | Built and playable: sim (15 tests) plus a keyboard fight view with a scripted bot and a two-player hot seat. Done-when requires a full match played start to finish by two people — that is the outstanding item, and it needs no camera. |
 | SB-007 | Avatar + canned pro-boxer punch animation | 📋 Not started | 2026-07-28 | Design agreed (see risk log 15): recognition triggers a mocap animation; the avatar never mirrors raw pose. Animation set depends on the surviving punch set, so blocked on SB-001. |
 | SB-008 | Milestone 4 — signaling server + WebRTC data channel | 📋 Not started | 2026-07-28 | Blocked by risk order. |
 | SB-009 | Milestone 5 — discrete events over LAN, delay-based netcode | 📋 Not started | 2026-07-28 | Blocked by risk order. |

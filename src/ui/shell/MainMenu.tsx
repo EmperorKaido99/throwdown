@@ -29,7 +29,7 @@ export function MainMenu({ onNavigate, fightReady }: Props) {
       screen: "fight",
       label: "Fight",
       detail: fightReady
-        ? "1v1 over your local network"
+        ? "Sparring bot, or two players on one keyboard"
         : "Not built yet — see what it's waiting on",
       locked: !fightReady,
     },
