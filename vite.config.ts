@@ -17,6 +17,18 @@ import basicSsl from "@vitejs/plugin-basic-ssl";
 const HTTPS = process.env.HTTPS === "1";
 
 /**
+ * Identifies the build that produced a measured run.
+ *
+ * On 2026-07-29 a recovered run from an older build was re-shared and read as a
+ * fresh result. Establishing which code it came from took inspecting the shape
+ * of the JSON for a field that had since been added. A report should say so
+ * outright. Vercel exposes the commit; a local build falls back to the time.
+ */
+const BUILD_ID =
+  process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ??
+  `local-${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "")}`;
+
+/**
  * Lets the pose Web Worker load MediaPipe's WASM runtime in dev.
  *
  * FilesetResolver dynamically imports the emscripten glue (vision_wasm_*.js)
@@ -48,6 +60,7 @@ function mediapipeWasmDevFix(): Plugin {
 
 // https://vite.dev/config/
 export default defineConfig({
+  define: { __BUILD_ID__: JSON.stringify(BUILD_ID) },
   plugins: [react(), mediapipeWasmDevFix(), ...(HTTPS ? [basicSsl()] : [])],
   worker: {
     /**

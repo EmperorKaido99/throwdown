@@ -15,6 +15,8 @@ import { PERCEPTION_CONFIG } from "../config/tuning";
 
 export interface RunContext {
   at: string;
+  /** Which build produced this run. See vite.config.ts BUILD_ID. */
+  build: string;
   userAgent: string;
   screen: string;
   camera: string;
@@ -33,6 +35,7 @@ export function captureRunContext(
 
   return {
     at: new Date().toISOString(),
+    build: typeof __BUILD_ID__ === "string" ? __BUILD_ID__ : "unknown",
     userAgent: navigator.userAgent,
     screen: `${window.innerWidth}x${window.innerHeight} ${orientation} dpr${
       window.devicePixelRatio || 1
@@ -75,6 +78,7 @@ export function formatRunConditions(c: RunConditions): string {
   lines.push("");
   lines.push("Run conditions");
   lines.push(`  when            ${c.start.at}`);
+  lines.push(`  build           ${c.start.build}`);
   lines.push(`  device          ${c.start.userAgent}`);
   lines.push(`  screen          ${c.start.screen}`);
   lines.push(`  camera          ${c.start.camera}`);

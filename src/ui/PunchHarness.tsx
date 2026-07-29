@@ -138,10 +138,12 @@ export function PunchHarness({
   // end so a thermal slowdown across a ~4.5 minute run is visible in the report
   // rather than being invisibly baked into the later trials.
   const [conditions, setConditions] = useState<RunConditions | null>(null);
+  const [recovered, setRecovered] = useState(false);
 
   const startCollection = useCallback(() => {
     setTrials([]);
     setTrialIndex(0);
+    setRecovered(false);
     setWindowPhase("leadin");
     captured.current = null;
     capturing.current = false;
@@ -283,6 +285,7 @@ export function PunchHarness({
   const recoverRun = useCallback((r: SavedRun) => {
     setTrials(r.trials);
     setConditions(r.conditions);
+    setRecovered(true);
     // Already persisted; re-saving would overwrite its end conditions with this
     // session's, which were not the conditions the run was taken under.
     finalised.current = true;
@@ -543,6 +546,7 @@ export function PunchHarness({
     <Results
       trials={trials}
       conditions={conditions}
+      recovered={recovered}
       onRestart={startCollection}
       onFree={() => setStep("free")}
     />
@@ -560,8 +564,11 @@ function RecoverLastRun({ onRecover }: { onRecover: (r: SavedRun) => void }) {
   return (
     <div className="recover">
       <div className="muted small">
-        A completed run from {new Date(saved.savedAt).toLocaleString()} is still
-        saved on this device ({saved.trials.length} trials).
+        An <strong>older</strong> run from{" "}
+        {new Date(saved.savedAt).toLocaleString()} is still saved on this device
+        ({saved.trials.length} trials, build{" "}
+        {saved.conditions?.start?.build ?? "unknown"}). Viewing it does not
+        re-run anything.
       </div>
       <div className="row">
         <button onClick={() => onRecover(saved)}>View that result</button>
@@ -657,11 +664,14 @@ function FeatureTable({ event }: { event: PunchEvent }) {
 function Results({
   trials,
   conditions,
+  recovered,
   onRestart,
   onFree,
 }: {
   trials: Trial[];
   conditions: RunConditions | null;
+  /** True when this is a stored run being viewed again, not one just thrown. */
+  recovered: boolean;
   onRestart: () => void;
   onFree: () => void;
 }) {
@@ -679,6 +689,16 @@ function Results({
   return (
     <div className="harness">
       <h2>Measured result</h2>
+      {recovered && (
+        <div className="recovered-banner">
+          RECOVERED RUN — not thrown just now
+          <div className="muted small">
+            Taken {new Date(conditions?.start.at ?? "").toLocaleString()} on
+            build {conditions?.start.build ?? "unknown"}. Sending this on is
+            sending the old result again — start a new run for a fresh one.
+          </div>
+        </div>
+      )}
       <div className={allPass ? "verdict ok" : "verdict fail"}>
         {allPass
           ? "Clears every pre-set bar"
