@@ -1,4 +1,6 @@
 import type { CameraInfo } from "../capture/useWebcam";
+import type { ClassifierDiagnostics } from "../perception/punchClassifier";
+import { PERCEPTION_CONFIG } from "../config/tuning";
 
 // Captures the conditions a measured run happened under, and stamps them onto
 // the report.
@@ -52,6 +54,16 @@ export interface RunConditions {
   repsPerType: number;
   torsoScale: number | null;
   scaleSource: string | null;
+  /**
+   * Detection diagnostics as they stood at the end of the run.
+   *
+   * This is the fix for what open question 1 called the blocking gap: run 1
+   * reported a 19% detection rate and could not say WHY, because features are
+   * only produced for punches that were detected — the 81% that failed were
+   * invisible. Without this a repeat failure is equally uninterpretable, and
+   * the only honest next step would be another five-minute run.
+   */
+  diagnostics: ClassifierDiagnostics | null;
 }
 
 /**
@@ -99,5 +111,53 @@ export function formatRunConditions(c: RunConditions): string {
       "  WARNING         hips were not visible, so torso scale used the weaker shoulder-width fallback — it shrinks as you blade into a stance"
     );
   }
+
+  const d = c.diagnostics;
+  if (d) {
+    const attempts = d.detections + d.rejections;
+    lines.push("");
+    lines.push("Detection gates");
+    lines.push(
+      `  launches ${d.launches} · detected ${d.detections} · rejected ${d.rejections}` +
+        (attempts > 0
+          ? ` · ${((d.detections / attempts) * 100).toFixed(0)}% pass`
+          : "")
+    );
+
+    const reasons = Object.entries(d.byReason).sort((a, b) => b[1] - a[1]);
+    if (reasons.length > 0) {
+      lines.push("  rejected by gate:");
+      for (const [reason, n] of reasons) {
+        lines.push(`    ${reason.padEnd(22)} ${n}`);
+      }
+    }
+
+    // The load-bearing numbers. A peak that never reached its gate means the
+    // gate is unreachable for this player's punches at this framing, not merely
+    // strict — which is a different problem with a different fix, and is
+    // exactly the distinction run 1 could not make.
+    lines.push("  peak seen vs gate (peak / gate):");
+    for (const hand of ["left", "right"] as const) {
+      const pk = d.peakSeen[hand];
+      const mark = (seen: number, need: number) =>
+        `${seen.toFixed(2)}/${need.toFixed(2)}${seen >= need ? "" : "  UNREACHED"}`;
+      lines.push(
+        `    ${hand.padEnd(6)} excursion ${mark(
+          pk.excursion,
+          PERCEPTION_CONFIG.minPunchExcursion
+        )}`
+      );
+      lines.push(
+        `    ${hand.padEnd(6)} speed     ${mark(
+          pk.speed,
+          PERCEPTION_CONFIG.minMeanSpeed
+        )}`
+      );
+    }
+  } else {
+    lines.push("");
+    lines.push("Detection gates   not captured");
+  }
+
   return lines.join("\n");
 }

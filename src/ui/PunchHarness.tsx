@@ -73,6 +73,7 @@ export function PunchHarness({
   const detection = usePunchDetection(poseRef, enabled);
   const { phase, calibration, calibrationProgress, lastPunch, startCalibration } =
     detection;
+  const { diagnostics: diagnosticsRef, resetDiagnostics } = detection;
 
   // ---- free play: rolling log of recent punches ----
   const [recent, setRecent] = useState<PunchEvent[]>([]);
@@ -124,6 +125,9 @@ export function PunchHarness({
     setWindowPhase("ready");
     captured.current = null;
     capturing.current = false;
+    // Zero the gate counters so the report describes THIS run, not whatever
+    // free practice happened before it.
+    resetDiagnostics();
     setConditions({
       start: captureContext(),
       end: null,
@@ -131,12 +135,13 @@ export function PunchHarness({
       repsPerType,
       torsoScale: calibration?.torsoScale ?? null,
       scaleSource: calibration?.scaleSource ?? null,
+      diagnostics: null,
     });
     // iOS Safari only permits synthesis that was started from a user gesture,
     // and this click is the last one before the player steps back out of reach.
     if (voicePrompts) primeSpeech();
     setStep("collect");
-  }, [voicePrompts, captureContext, stance, repsPerType, calibration]);
+  }, [voicePrompts, captureContext, stance, repsPerType, calibration, resetDiagnostics]);
 
   // The player never touches the device during a run, which on a phone is long
   // enough to hit auto-lock. Held across the whole harness, not just the run,
@@ -207,10 +212,27 @@ export function PunchHarness({
     }
     if (finalised.current || trials.length === 0 || !conditions) return;
     finalised.current = true;
-    const closed: RunConditions = { ...conditions, end: captureContext() };
+    const snapshot = diagnosticsRef.current;
+    const closed: RunConditions = {
+      ...conditions,
+      end: captureContext(),
+      // Deep-copied: the classifier keeps mutating its live diagnostics object,
+      // so storing the reference would let the saved run drift after the fact.
+      diagnostics: snapshot
+        ? {
+            ...snapshot,
+            byReason: { ...snapshot.byReason },
+            recent: [...snapshot.recent],
+            peakSeen: {
+              left: { ...snapshot.peakSeen.left },
+              right: { ...snapshot.peakSeen.right },
+            },
+          }
+        : null,
+    };
     setConditions(closed);
     saveRun(trials, closed);
-  }, [step, trials, conditions, captureContext]);
+  }, [step, trials, conditions, captureContext, diagnosticsRef]);
 
   const recoverRun = useCallback((r: SavedRun) => {
     setTrials(r.trials);
