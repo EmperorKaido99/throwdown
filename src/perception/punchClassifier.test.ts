@@ -233,3 +233,41 @@ describe("detection robustness", () => {
     expect(events).toHaveLength(0);
   });
 });
+
+// Reproduces the phone run of 2026-07-29: 39 prompted punches produced
+// 29 launches, 27 rejections all reading "excursion <", and 0 detections —
+// while the peak excursion actually SEEN reached 1.54 against a 0.13 gate.
+// A gate cleared twelve times over cannot also be the thing rejecting every
+// punch, so the episode being measured is not the punch.
+describe("detection episode boundaries (regression: 2026-07-29 phone run)", () => {
+  it("does not launch or reject on idle guard jitter", () => {
+    const c = new PunchClassifier();
+    for (const f of syntheticIdle(120)) c.update(f, CAL, f.timestamp);
+    const d = c.diagnostics;
+
+    // Standing in guard is not a punch attempt. Counting it as one floods the
+    // rejection log with the gate the real punch is later blamed on.
+    expect(d.launches).toBe(0);
+    expect(d.rejections).toBe(0);
+  });
+
+  it("does not finalise a punch before the fist has left the guard radius", () => {
+    // A real punch accelerates from rest, so its first sampled frame can still
+    // sit inside the guard radius — especially at the ~15 FPS these devices
+    // actually run at. Finalising there measures the first two frames of the
+    // wind-up and reports a near-zero excursion.
+    const c = new PunchClassifier();
+    for (const f of syntheticPunch("straightForeshortened", { hand: "left", frames: 8 })) {
+      c.update(f, CAL, f.timestamp);
+    }
+    const d = c.diagnostics;
+    const worst = d.recent[d.recent.length - 1];
+
+    expect(
+      worst === undefined || worst.peakExcursion >= d.peakSeen.left.excursion * 0.5,
+      `an episode was finalised at excursion ${worst?.peakExcursion.toFixed(3)} ` +
+        `while the fist reached ${d.peakSeen.left.excursion.toFixed(3)} — ` +
+        `the episode ended before the punch did`
+    ).toBe(true);
+  });
+});

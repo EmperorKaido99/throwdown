@@ -313,6 +313,42 @@ Status: **DESIGNED FOR, NOT YET MEASURED.** Raised by the project owner: ~6'1" w
 
 **Presentation:** per open question 15(a), both avatars play the same canned animations, so the reach difference does not show on screen at all.
 
+**17. (New, 2026-07-29) Run 2 (phone) FAILED at 0% detection — and the diagnostics identified a real FSM bug, not a threshold problem.**
+Status: **BUG FOUND, FIXED, REGRESSION-TESTED. Not yet re-measured on a real punch.**
+
+Run 2, Android Chrome, 39 trials (jab 20, cross 19; aborted before hook/uppercut):
+
+```
+  FAIL  Detection rate             0%  (bar 90%)
+  attempts 29 · detected 0 · rejected 27 · rejected by gate: excursion < ×27
+  peak seen vs gate:  left excursion 1.54/0.13   right excursion 1.78/0.13
+                      left speed     2.88/0.35   right speed     4.04/0.35
+  pose FPS 15.6 → 15.1 · GPU · torso scale 0.536 (shoulder-hip)
+```
+
+**The report contained a flat contradiction, and that is what made it useful.** Every punch was rejected for insufficient excursion, while the peak excursion actually seen was **twelve times the gate**. A gate cleared twelvefold cannot also be rejecting every punch — so the episode being measured was not the punch.
+
+**Conditions were good, which removes the ambiguity 7b warned about.** Hips visible (`shoulder-hip` scale, not the weaker fallback), GPU delegate engaged, 15.6→15.1 FPS with no thermal drop. This failure is **not** attributable to phone framing, so 7b's "a phone failure is ambiguous" caveat does not apply here — the fault was in the code.
+
+**Root cause: the episode could finalise before the fist had left the guard radius.**
+- `maybeLaunch` starts tracking on the first outward twitch while the hand is still inside the guard radius. That is deliberate and correct — it puts the wind-up inside the measured window, which an uppercut's chamber needs.
+- `trackPunch` then treated *any* frame below the re-arm radius as "fist is back at guard, episode complete". On the frame right after a twitch-launch the fist has not left the guard radius yet, so the episode closed immediately, measured the two frames of the wind-up, and reported a near-zero peak excursion — which the excursion gate then correctly rejected.
+- Guard jitter drifts outward roughly every other frame, so standing still produced a continuous stream of launch → instant-finalise → rejection. The rejection log was therefore dominated by fidget, and the gate it named was blamed for the punches.
+
+**Why the existing 53 tests missed it.** The idle-guard test asserted only that no punch *events* were emitted — which was true, because every spurious episode was rejected. The FSM was churning launches and rejections throughout, and nothing looked at those counters. A test asserting an empty output cannot see a machine failing loudly into a bin.
+
+**Fix:** a `clearedGuard` latch per episode. Tracking still starts on the first twitch, but the episode cannot finalise until the fist has genuinely exceeded the re-arm radius at least once. An episode that never clears guard is dropped silently instead of being recorded as a rejected punch. `diag.launches` now counts attempts that actually cleared guard, so it means "punch attempts" rather than "twitches", and a new `diag.timeouts` counts episodes that cleared guard and never returned.
+
+**Two regression tests, both of which failed before the fix and pass after:**
+- 120 frames of idle guard must produce zero launches and zero rejections. It produced dozens of both.
+- An episode must not finalise at an excursion far below what the fist went on to reach. It finalised at 0.024 while the fist reached 0.165.
+
+All 55 tests pass, including the pre-existing 53 (four punch shapes at 10/12/15/20/30 FPS still detect exactly once).
+
+**What this does NOT establish.** Detection has still never succeeded on a real thrown punch. This is a proven bug that produces exactly the observed signature, but whether it was the *only* cause is unknown until run 3. Do not record Milestone 1 as progressing on the strength of a green test suite — that is precisely the mistake the synthetic tests invited last time.
+
+**Report improvements shipped with the fix,** so a repeat failure names its own cause: the last six rejections now print their actual peak excursion, mean speed, sample count and duration, alongside the timeout count. The contradiction above took a code read to resolve; the next one should not.
+
 ## Instruction for whoever (or whatever) is executing this plan
 
 When any of the above is investigated and resolved, update its status and findings in place rather than just proceeding silently — this file is meant to make the project's actual state of knowledge visible at a glance, not to be a one-time planning artifact that goes stale.

@@ -53,7 +53,8 @@ export function DetectionDiagnostics({ diagnosticsRef, onReset }: Props) {
       </div>
 
       <div className="muted small">
-        launched {d.launches} · detected {d.detections} · rejected {d.rejections}
+        attempts {d.launches} · detected {d.detections} · rejected{" "}
+        {d.rejections} · timed out {d.timeouts}
         {attempts > 0 ? ` · ${rate.toFixed(0)}% pass` : ""}
       </div>
 

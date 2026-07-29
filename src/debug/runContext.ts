@@ -118,7 +118,8 @@ export function formatRunConditions(c: RunConditions): string {
     lines.push("");
     lines.push("Detection gates");
     lines.push(
-      `  launches ${d.launches} · detected ${d.detections} · rejected ${d.rejections}` +
+      `  attempts ${d.launches} · detected ${d.detections} · rejected ${d.rejections}` +
+        ` · timed out ${d.timeouts}` +
         (attempts > 0
           ? ` · ${((d.detections / attempts) * 100).toFixed(0)}% pass`
           : "")
@@ -136,6 +137,23 @@ export function formatRunConditions(c: RunConditions): string {
     // gate is unreachable for this player's punches at this framing, not merely
     // strict — which is a different problem with a different fix, and is
     // exactly the distinction run 1 could not make.
+    // The actual numbers behind the most recent rejections. Without these a
+    // report can say "rejected on excursion" while the peak-seen row says the
+    // excursion gate was cleared twelvefold, and there is no way to tell from
+    // the report which of the two is describing the punch.
+    if (d.recent.length > 0) {
+      lines.push("  last rejections (peak excursion / mean speed / samples):");
+      for (const r of d.recent.slice(0, 6)) {
+        const mean =
+          r.durationMs > 0 ? r.peakExcursion / (r.durationMs / 1000) : 0;
+        lines.push(
+          `    ${r.hand.padEnd(6)} exc ${r.peakExcursion.toFixed(3)}` +
+            `  mean ${mean.toFixed(2)}` +
+            `  ${r.samples}f  ${r.durationMs.toFixed(0)}ms  — ${r.reason}`
+        );
+      }
+    }
+
     lines.push("  peak seen vs gate (peak / gate):");
     for (const hand of ["left", "right"] as const) {
       const pk = d.peakSeen[hand];

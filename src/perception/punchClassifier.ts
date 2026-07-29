@@ -77,9 +77,17 @@ export interface RejectionRecord {
  * gate is unreachable for that player rather than merely strict.
  */
 export interface ClassifierDiagnostics {
+  /**
+   * Episodes in which the fist genuinely cleared the guard radius. NOT the
+   * number of times the FSM entered its punching phase — tracking starts on the
+   * first outward twitch so the wind-up is inside the measured window, and
+   * counting those made standing still look like ~30 punch attempts a minute.
+   */
   launches: number;
   detections: number;
   rejections: number;
+  /** Cleared guard but never came back inside maxPunchDurationMs. */
+  timeouts: number;
   byReason: Record<string, number>;
   recent: RejectionRecord[];
   peakSeen: Record<
@@ -94,6 +102,7 @@ function emptyDiagnostics(): ClassifierDiagnostics {
     launches: 0,
     detections: 0,
     rejections: 0,
+    timeouts: 0,
     byReason: {},
     recent: [],
     peakSeen: {
@@ -109,6 +118,16 @@ class HandTracker {
   private launchIndex = 0;
   private peakIndex = 0;
   private lastPunchAt = -Infinity;
+  /**
+   * Has the fist actually left the guard radius during the current episode?
+   *
+   * Without this the episode could finalise on the frame after it started, back
+   * inside the guard radius it had never left, reporting a near-zero excursion
+   * for a punch that went on to travel ten times the gate. That is the
+   * 2026-07-29 phone run: 29 launches, 27 rejections all naming the excursion
+   * gate, peak excursion actually seen 1.54 against a 0.13 gate.
+   */
+  private clearedGuard = false;
   private speed = 0;
   private side: HandSide;
   private diag: ClassifierDiagnostics;
@@ -132,6 +151,7 @@ class HandTracker {
     this.history = [];
     this.phase = "guard";
     this.speed = 0;
+    this.clearedGuard = false;
     this.lastPunchAt = -Infinity;
   }
 
@@ -225,6 +245,7 @@ class HandTracker {
 
   private abort(): void {
     this.phase = "guard";
+    this.clearedGuard = false;
   }
 
   /**
@@ -259,8 +280,14 @@ class HandTracker {
     const leaving = s.excursion > prev.excursion;
 
     if (nearGuard && leaving) {
-      this.diag.launches++;
+      // Start tracking on the first outward twitch so the wind-up sits inside
+      // the measured window — an uppercut chambers down before it drives up.
+      // This is NOT yet a punch attempt: guard jitter drifts outward roughly
+      // every other frame, so counting it here reported tens of attempts a
+      // minute from someone standing still. The count moves to the moment the
+      // fist actually clears the guard radius.
       this.phase = "punching";
+      this.clearedGuard = false;
       this.launchIndex = this.history.length - 2;
       this.peakIndex = this.history.length - 1;
     }
@@ -281,15 +308,26 @@ class HandTracker {
       this.peakIndex = this.history.length - 1;
     }
 
+    const reArm = this.reArmExcursion(cal);
+
+    // The fist has genuinely left guard. Only now is this a punch attempt.
+    if (!this.clearedGuard && s.excursion > reArm) {
+      this.clearedGuard = true;
+      this.diag.launches++;
+    }
+
     if (now - launch.t > C.maxPunchDurationMs) {
-      // Hand left guard and never came back in a plausible time — a reach or
-      // a block, not a punch.
+      // Left guard and never came back in a plausible time — a reach or a
+      // block, not a punch. A wobble that never cleared guard at all is not
+      // even that, and is dropped without polluting the rejection log.
+      if (this.clearedGuard) this.diag.timeouts++;
       this.abort();
       return null;
     }
 
-    // Not home yet.
-    if (s.excursion > this.reArmExcursion(cal)) return null;
+    // Not home yet — or never actually left. Either way the episode is not
+    // over, and finalising here would measure the wind-up instead of the punch.
+    if (s.excursion > reArm || !this.clearedGuard) return null;
 
     // Fist is back at guard: the episode is complete. Decide whether the
     // motion we just saw actually qualifies.
@@ -499,6 +537,7 @@ export class PunchClassifier {
     this.diag.launches = fresh.launches;
     this.diag.detections = fresh.detections;
     this.diag.rejections = fresh.rejections;
+    this.diag.timeouts = fresh.timeouts;
     this.diag.byReason = fresh.byReason;
     this.diag.recent = fresh.recent;
     this.diag.peakSeen = fresh.peakSeen;
