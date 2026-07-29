@@ -140,8 +140,11 @@ export function stepFight(state: FightState, input: FightInput): FightState {
   const tick = state.tick + 1;
   const events: FightEvent[] = [];
 
-  // Work on copies; nothing below mutates `state`.
-  const next: FighterState[] = state.fighters.map((f) => ({
+  // Work on copies; nothing below mutates `state`. The public type keeps
+  // `pending` readonly so callers cannot corrupt a state they were handed —
+  // this local view is the only place it is built up.
+  type Mutable = Omit<FighterState, "pending"> & { pending: PendingPunch[] };
+  const next: Mutable[] = state.fighters.map((f) => ({
     ...f,
     pending: [...f.pending],
   }));
