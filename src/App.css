@@ -644,3 +644,15 @@
   font-size: 0.78rem;
   line-height: 1.5;
 }
+
+/* The tracked <video> must never sit inside a display:none subtree — a hidden
+   video element can stop delivering frames, which silently stops pose tracking
+   with no error anywhere. Parked off-screen instead, so it keeps compositing
+   while the player is on another screen. */
+.app-parked {
+  position: absolute;
+  left: -20000px;
+  top: 0;
+  width: 640px;
+  pointer-events: none;
+}

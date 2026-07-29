@@ -44,7 +44,13 @@ export default function App() {
   // webcam that stays live after you leave the screen has to be visible.
   const [cameraArmed, setCameraArmed] = useState(false);
 
-  const { videoRef, status: camStatus, error: camError, info } = useWebcam(cameraArmed);
+  const {
+    videoRef,
+    streamRef,
+    status: camStatus,
+    error: camError,
+    info,
+  } = useWebcam(cameraArmed);
   const {
     poseRef,
     rawPoseRef,
@@ -130,7 +136,14 @@ export default function App() {
         )}
       </header>
 
-      {screen === "fight" && <FightScreen />}
+      {screen === "fight" && (
+        <FightScreen
+          poseRef={poseRef}
+          poseReady={poseStatus === "ready"}
+          streamRef={streamRef}
+          onNeedCamera={() => setCameraArmed(true)}
+        />
+      )}
       {screen === "howto" && <HowToPlay />}
       {screen === "settings" && (
         <SettingsScreen
@@ -150,9 +163,8 @@ export default function App() {
       )}
       {cameraArmed && (
         <div
-          className="app app-wide"
-          hidden={screen !== "train"}
-          style={screen === "train" ? undefined : { display: "none" }}
+          className={`app app-wide${screen === "train" ? "" : " app-parked"}`}
+          aria-hidden={screen !== "train"}
         >
           <div
             className="stage"

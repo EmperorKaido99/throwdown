@@ -17,6 +17,14 @@ export interface CameraInfo {
 
 export function useWebcam(enabled: boolean) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  /**
+   * The live stream, so other views can attach their own <video> to it.
+   *
+   * Several elements may share one MediaStream, which is what lets the fight
+   * show a small self-view without opening the camera twice — a second
+   * getUserMedia call on the same device fails or degrades on most phones.
+   */
+  const streamRef = useRef<MediaStream | null>(null);
   const [status, setStatus] = useState<WebcamStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<CameraInfo | null>(null);
@@ -44,6 +52,7 @@ export function useWebcam(enabled: boolean) {
           stream.getTracks().forEach((t) => t.stop());
           return;
         }
+        streamRef.current = stream;
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           await videoRef.current.play();
@@ -73,9 +82,10 @@ export function useWebcam(enabled: boolean) {
 
     return () => {
       cancelled = true;
+      streamRef.current = null;
       stream?.getTracks().forEach((t) => t.stop());
     };
   }, [enabled]);
 
-  return { videoRef, status, error, info };
+  return { videoRef, streamRef, status, error, info };
 }

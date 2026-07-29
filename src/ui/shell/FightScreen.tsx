@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { FightView, type Opponent } from "../fight/FightView";
+import { CameraFight } from "../fight/CameraFight";
+import type { PoseFrame } from "../../pose/poseTypes";
 import "../fight/fight.css";
 
 // Milestone 3 is playable; Milestones 4-5 (networked play) are not. The screen
@@ -36,10 +38,11 @@ const ONLINE_GATES: Gate[] = [
     id: "SB-001",
     milestone: "Milestone 1",
     title: "Camera input driving the fight",
-    state: "blocked",
+    state: "done",
     note:
-      "Detection has not yet succeeded on a real thrown punch. Four runs, four " +
-      "defects found and fixed. Until it does, the fight is keyboard-driven.",
+      "Wired: punch events and head state drive the fight directly. Whether " +
+      "detection is RELIABLE is still unmeasured — but that now shows up as the " +
+      "game feeling unresponsive, which is a more useful signal than a matrix.",
   },
   {
     id: "SB-008",
@@ -65,10 +68,40 @@ const STATE_LABEL: Record<GateState, string> = {
   waiting: "not started",
 };
 
-export function FightScreen() {
-  const [mode, setMode] = useState<Opponent | null>(null);
+interface Props {
+  poseRef: React.RefObject<PoseFrame | null>;
+  poseReady: boolean;
+  streamRef: React.RefObject<MediaStream | null>;
+  /** Turns the camera on. The fight screen does not own it — App does. */
+  onNeedCamera: () => void;
+}
 
-  if (mode) return <FightView opponent={mode} onExit={() => setMode(null)} />;
+type Mode = "camera" | "scripted" | "keyboard";
+
+export function FightScreen({
+  poseRef,
+  poseReady,
+  streamRef,
+  onNeedCamera,
+}: Props) {
+  const [mode, setMode] = useState<Mode | null>(null);
+
+  if (mode === "camera") {
+    return (
+      <CameraFight
+        poseRef={poseRef}
+        poseReady={poseReady}
+        streamRef={streamRef}
+        opponent="scripted"
+        onExit={() => setMode(null)}
+      />
+    );
+  }
+  if (mode) {
+    return (
+      <FightView opponent={mode as Opponent} onExit={() => setMode(null)} />
+    );
+  }
 
   return (
     <div className="screen">
@@ -79,8 +112,22 @@ export function FightScreen() {
       </p>
 
       <div className="mode-list">
+        <button
+          className="mode-item"
+          onClick={() => {
+            onNeedCamera();
+            setMode("camera");
+          }}
+        >
+          <span className="mode-item-label">Camera vs sparring bot</span>
+          <span className="mode-item-detail">
+            Throw real punches. Lean to slip, drop or crouch to duck. This is
+            the MVP — the same fight, driven by your body instead of keys.
+          </span>
+        </button>
+
         <button className="mode-item" onClick={() => setMode("scripted")}>
-          <span className="mode-item-label">Sparring bot</span>
+          <span className="mode-item-label">Keyboard vs sparring bot</span>
           <span className="mode-item-detail">
             One player, keyboard. A scripted opponent that throws and defends on
             a fixed pattern — good for learning the timing.

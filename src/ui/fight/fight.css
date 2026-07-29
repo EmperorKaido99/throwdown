@@ -442,3 +442,34 @@
   text-transform: uppercase;
   color: #e6edf5;
 }
+
+/* ---------- self view ---------- */
+
+.selfview {
+  width: 100%;
+  display: block;
+  /* Mirrored: an unmirrored self-view is disorienting to move in. */
+  transform: scaleX(-1);
+}
+
+.selfview-pip {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  z-index: 2;
+  width: clamp(84px, 22%, 150px);
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #3a4351;
+  background: #0b0f14;
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.selfview-large {
+  max-width: 22rem;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #212c3a;
+  background: #0b0f14;
+}

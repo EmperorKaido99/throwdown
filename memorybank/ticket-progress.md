@@ -22,7 +22,7 @@ risk-first and is **not** negotiable by ticket priority — see
 
 | Ticket | Title | Status | Last Updated | Notes |
 |--------|-------|--------|--------------|-------|
-| SB-001 | Milestone 1 run 2 — measured punch confusion matrix | 🚫 Blocked | 2026-07-28 | **The gate for the whole project.** Needs a human throwing ~20 labelled reps × 4 punch types into a webcam. No agent can unblock this. Run 1 failed at detection (19%); detection has since been redesigned but never tested on a real punch. |
+| SB-001 | Milestone 1 — punch detection quality | 🧪 Testing | 2026-07-29 | **The gate for the whole project.** Needs a human throwing ~20 labelled reps × 4 punch types into a webcam. No agent can unblock this. Run 1 failed at detection (19%); detection has since been redesigned but never tested on a real punch. |
 | SB-002 | Milestone 2 validation — dodge/duck false-trigger pass | 🚫 Blocked | 2026-07-28 | Needs a real body. Combine with SB-001 in one session. |
 | SB-003 | Settle the Web Worker A/B (`npm run measure:ab`) | 🚫 Blocked | 2026-07-28 | Needs a person standing in frame for the whole run, against `build && preview` (not `dev` — risk log 9). |
 | SB-004 | UI shell, main menu, mobile-responsive layout | ✅ Done | 2026-07-28 | Menu → Train / Measure / How to play / Settings / Fight (locked). Deliberately punch-set agnostic. |

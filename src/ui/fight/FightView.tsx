@@ -38,10 +38,21 @@ const MAX_CATCHUP_TICKS = 10;
 
 interface Props {
   opponent: Opponent;
+  /**
+   * Supplies player one's input for a tick, replacing the keyboard.
+   *
+   * This is the seam the camera plugs into. The fight does not know or care
+   * which side of it is a human at a keyboard and which is a pose tracker —
+   * that separation is what let the whole simulation be built and tested before
+   * detection worked.
+   */
+  playerInput?: () => FighterInput;
+  /** Optional live camera thumbnail, so the player can see their own framing. */
+  selfView?: React.ReactNode;
   onExit: () => void;
 }
 
-export function FightView({ opponent, onExit }: Props) {
+export function FightView({ opponent, playerInput, selfView, onExit }: Props) {
   const [display, setDisplay] = useState<FightState>(initialFight);
   const [flash, setFlash] = useState<{ p1: string | null; p2: string | null }>({
     p1: null,
@@ -117,22 +128,24 @@ export function FightView({ opponent, onExit }: Props) {
       accumulator = Math.min(accumulator + elapsed, TICK_MS * MAX_CATCHUP_TICKS);
 
       const landed: FightEvent[] = [];
+      // The last input actually fed to the simulation, so the arena can pose
+      // the player from the same source that drove the fight.
+      let lastPlayerInput: FighterInput | undefined;
       while (accumulator >= TICK_MS) {
         accumulator -= TICK_MS;
         const state = fight.current;
 
-        const p1: FighterInput = keyboardInput(
-          keys.current,
-          PLAYER1_KEYS,
-          queued.current.p1
-        );
-        const p2: FighterInput =
+        const p1In: FighterInput = playerInput
+          ? playerInput()
+          : keyboardInput(keys.current, PLAYER1_KEYS, queued.current.p1);
+        lastPlayerInput = p1In;
+        const p2In: FighterInput =
           opponent === "scripted"
             ? scriptedInput(state.tick)
             : keyboardInput(keys.current, PLAYER2_KEYS, queued.current.p2);
         queued.current = { p1: null, p2: null };
 
-        const next = stepFight(state, [p1, p2]);
+        const next = stepFight(state, [p1In, p2In]);
         fight.current = next;
         landed.push(...next.events);
         if (next.status !== "fighting") {
@@ -141,14 +154,19 @@ export function FightView({ opponent, onExit }: Props) {
         }
       }
 
-      arenaView.current = toArenaView(fight.current, keys.current, opponent);
+      arenaView.current = toArenaView(
+        fight.current,
+        keys.current,
+        opponent,
+        playerInput ? lastPlayerInput : undefined
+      );
       setDisplay(fight.current);
       if (landed.length > 0) applyFlash(landed, setFlash);
     };
 
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [opponent]);
+  }, [opponent, playerInput]);
 
   const [p1, p2] = display.fighters;
   const over = isOver(display);
@@ -158,6 +176,8 @@ export function FightView({ opponent, onExit }: Props) {
     <div className="fight">
       <div className="fight-ring">
         <ArenaCanvas viewRef={arenaView} />
+
+        {selfView && <div className="selfview-pip">{selfView}</div>}
 
         <div className="fight-hud">
           <HealthBar
@@ -235,7 +255,7 @@ export function FightView({ opponent, onExit }: Props) {
         )}
       </div>
 
-      <Controls opponent={opponent} />
+      <Controls opponent={opponent} camera={playerInput !== undefined} />
 
       <div className="row">
         <button className="btn" onClick={reset}>
@@ -339,7 +359,8 @@ function HealthBar({
 function toArenaView(
   state: FightState,
   keys: Set<string>,
-  opponent: Opponent
+  opponent: Opponent,
+  playerActual?: FighterInput
 ): ArenaView {
   const posture = (b: KeyBindings) => ({
     lean: keys.has(b.leanLeft) === keys.has(b.leanRight)
@@ -360,7 +381,12 @@ function toArenaView(
     };
   };
 
-  const you = posture(PLAYER1_KEYS);
+  // When the camera is driving, the player's posture comes from the input that
+  // was actually fed to the simulation — reading the keyboard would show
+  // nothing, and the boxer would stand still while its owner slipped.
+  const you = playerActual
+    ? { lean: playerActual.lean, duck: playerActual.duck }
+    : posture(PLAYER1_KEYS);
   // A scripted opponent has no keys; its posture is read back from the same
   // deterministic function that drives it, one tick behind, which is close
   // enough for a display value.
@@ -384,7 +410,29 @@ function toArenaView(
   };
 }
 
-function Controls({ opponent }: { opponent: Opponent }) {
+function Controls({
+  opponent,
+  camera,
+}: {
+  opponent: Opponent;
+  camera: boolean;
+}) {
+  if (camera) {
+    return (
+      <div className="fight-controls">
+        <div>
+          <div className="hud-label">You</div>
+          Throw real punches at the camera · lean to slip · drop your head or
+          bend your knees to duck
+        </div>
+        <p className="muted small">
+          A punch takes {FIGHT_CONFIG.windupTicks} ticks to land, so a slip
+          started after it was thrown still beats it. Slip or duck and your next
+          punch counters for {FIGHT_CONFIG.counterDamageMultiplier}x damage.
+        </p>
+      </div>
+    );
+  }
   return (
     <div className="fight-controls">
       <div>

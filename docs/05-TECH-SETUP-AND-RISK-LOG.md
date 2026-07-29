@@ -431,6 +431,23 @@ Run 4, build `d54443a`, 80 trials, 0 detected.
 
 **One item for the next run to confirm:** run 4 was taken in `southpaw` stance where runs 1–3 were `orthodox`. If that was not deliberate, the spoken prompts asked for the wrong hands throughout, which would corrupt the hand and type labels independently of anything above. Confirm the stance before starting.
 
+**21. (New, 2026-07-29) Camera now drives the fight, and the project owner has changed how detection gets judged.**
+Status: WIRED. Accuracy still unmeasured, deliberately.
+
+Four measured runs produced four bugs and no accuracy number. The project owner's call, in their words: stop running the protocol, build the MVP, and judge detection by playing. That is a real change to how Milestone 1 is assessed and it is recorded here rather than left implicit.
+
+**What is now true:** punch events and continuous head state feed `FighterInput` directly (`simulation/cameraInput.ts`), and `FightView` takes an optional `playerInput` so the fight cannot tell a keyboard from a camera. The measurement harness is untouched and still reachable from Train.
+
+**Why this is defensible despite the risk-first order.** The order exists so that a fun prototype is not built on unreliable classification and then rewritten. That risk is largely retired by construction here: the simulation is punch-set agnostic and was fully tested against keyboard input, so if punch *typing* turns out to be unusable, the fight degrades to "a punch happened" without a rewrite. What the camera path adds is a much faster feedback loop — unresponsiveness is felt in seconds, where the protocol cost six minutes per attempt.
+
+**What is NOT established, and must not be claimed.** There is still no confusion matrix, no detection rate, and no accuracy figure of any kind. Milestone 1's stated done-when is unchanged and unmet. "The camera drives the fight" is a statement about plumbing, not about quality.
+
+**Two defects found while wiring it, both of the kind that fail silently:**
+- The tracked `<video>` sat inside a `display: none` subtree once the shell had more than one screen. A hidden video element can stop delivering frames, which would stop pose tracking with no error anywhere. It is now parked off-screen so it keeps compositing.
+- `HeadState.lean` is in IMAGE space, and the simulation's lean is in the fighter's own frame. Feeding it through unnegated would make every slip dodge the wrong way — and it would have looked correct on screen, because the camera preview is mirrored. Negated at the seam, with the reasoning recorded there.
+
+**Self-view added.** A mirrored thumbnail in the ring corner, attached to the same `MediaStream` as the tracker rather than opening the camera twice (a second `getUserMedia` on one device fails or degrades on most phones). Without it a player has no way to tell they have drifted out of frame — which, given runs 3 and 4 both failed on framing, is not a cosmetic addition.
+
 ## Instruction for whoever (or whatever) is executing this plan
 
 When any of the above is investigated and resolved, update its status and findings in place rather than just proceeding silently — this file is meant to make the project's actual state of knowledge visible at a glance, not to be a one-time planning artifact that goes stale.
