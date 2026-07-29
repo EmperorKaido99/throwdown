@@ -275,3 +275,62 @@ export const DEBUG_CONFIG = {
   /** Rolling window of per-frame samples used for the FPS/latency statistics. */
   perfWindowSize: 600,
 };
+
+/**
+ * Fight rules. Every value here is a game-feel dial, not a perception
+ * threshold — the simulation must never read PERCEPTION_CONFIG, and the
+ * perception layer must never read this.
+ *
+ * Deliberately punch-set agnostic: damage is keyed by PunchType, but nothing
+ * requires all four to ever be produced. If Milestone 1 forces a descope to
+ * three types, or to "a punch happened", the simulation is unaffected.
+ */
+export const FIGHT_CONFIG = {
+  /** Simulation ticks per second. Fixed — the sim never sees wall time. */
+  tickRate: 60,
+  startingHealth: 100,
+  /** Round length in ticks. 90s at 60Hz. */
+  roundTicks: 90 * 60,
+
+  /**
+   * Ticks between a punch being thrown and it resolving.
+   *
+   * Not zero, for three separate reasons: it is the window in which the
+   * defender's dodge can beat the punch; it is what a wind-up animation plays
+   * into; and 04-NETWORKING-AND-NETCODE.md needs a gap between "punch thrown"
+   * and "punch resolved" for the two-stage event mitigation.
+   */
+  windupTicks: 12,
+  /** Ticks after throwing before the same fighter can throw again. */
+  recoveryTicks: 18,
+  /** Ticks the defender is staggered for after being hit. */
+  stunTicks: 15,
+
+  damage: {
+    jab: 5,
+    cross: 9,
+    hook: 8,
+    uppercut: 10,
+  } as Record<PunchTypeName, number>,
+
+  /**
+   * Head lean, 0..1, at which a straight punch is slipped. Read from the
+   * defender's head state at the tick the punch RESOLVES, not when it was
+   * thrown — a dodge started after the punch left should still work, which is
+   * what makes defence feel active.
+   */
+  slipLean: 0.55,
+  /** Duck, 0..1, at which a punch to the head is ducked under. */
+  duckUnder: 0.55,
+  /**
+   * An uppercut travels upward, so ducking into one is worse than standing up.
+   * Classic boxing logic, and it gives head movement a real cost as well as a
+   * benefit.
+   */
+  uppercutDuckPenalty: 1.6,
+  /** Damage multiplier when the defender is already stunned. */
+  stunnedDamageMultiplier: 1.25,
+} as const;
+
+type PunchTypeName = "jab" | "cross" | "hook" | "uppercut";
+
