@@ -113,6 +113,22 @@ export const PERCEPTION_CONFIG = {
 
   /** Good frames needed before calibration can be accepted. */
   calibrationMinSamples: 30,
+  /**
+   * Maximum per-frame wrist movement, torso units, for a frame to count toward
+   * calibration.
+   *
+   * Calibration used to accept every frame from the instant the button was
+   * tapped — including the player walking back into shot and raising their
+   * hands into guard. The median guard position then landed somewhere along
+   * that path and the measured "jitter" described the movement, not the noise.
+   * Run 4 (2026-07-29) recorded 0.31 torso units of guard jitter this way,
+   * which is roughly a third of a torso, and every downstream threshold was
+   * derived from it.
+   *
+   * 0.05 admits ordinary wobble while excluding a hand travelling into
+   * position, which covers ~0.13 torso units per frame at 15 FPS.
+   */
+  calibrationMaxMotion: 0.05,
 
   // --- Punch detection (the tractable half; see 03-GESTURE-CLASSIFICATION.md) ---
 
@@ -170,6 +186,23 @@ export const PERCEPTION_CONFIG = {
   minUsableTorsoScale: 0.32,
   /** Below this excursion the hand counts as back at guard, re-arming. */
   guardExcursion: 0.07,
+  /**
+   * Fraction of its own peak excursion the fist must fall back to for the
+   * episode to count as finished, independent of the calibrated guard point.
+   *
+   * The guard-relative test alone assumes the calibrated guard is where the
+   * hand actually returns to. Run 4 (2026-07-29) showed what happens when it is
+   * not: measured guard jitter of 0.31 torso units exceeded the re-arm radius,
+   * so the fist never read as "home", and all 8 attempts timed out without a
+   * single episode ever closing — 80 punches, zero evaluated.
+   *
+   * Retraction is measured against the punch itself rather than against a
+   * reference point that may be wrong, so it degrades gracefully when
+   * calibration is imperfect. It is deliberately an OR with the guard test, not
+   * a replacement: a punch that returns cleanly to guard should still close on
+   * the tighter condition.
+   */
+  retractionFraction: 0.5,
   /**
    * Minimum MEAN outward speed of the fist, torso-widths per second. Mean, not
    * peak: peak is measured between frames, so a slower camera under-reports it

@@ -110,6 +110,23 @@ function jitter(xs: number[], ys: number[]): number {
 
 export class CalibrationCollector {
   private scaleSource: TorsoScaleSource = "shoulder-hip";
+  private prevWrists: Record<HandSide, { x: number; y: number }> | null = null;
+  /** True when the last frame was rejected for movement, for UI feedback. */
+  moving = false;
+
+  /**
+   * Largest per-frame wrist displacement, torso-normalized. Null on the first
+   * frame, when there is nothing to compare against.
+   */
+  private frameMotion(pose: PoseFrame, scale: number): number | null {
+    const prev = this.prevWrists;
+    if (!prev) return null;
+    return Math.max(
+      Math.hypot(pose.leftWrist.x - prev.left.x, pose.leftWrist.y - prev.left.y),
+      Math.hypot(pose.rightWrist.x - prev.right.x, pose.rightWrist.y - prev.right.y)
+    ) / scale;
+  }
+
   private acc: Accum = {
     torso: [],
     shoulderY: [],
@@ -134,6 +151,8 @@ export class CalibrationCollector {
       headLateral: [],
       headAbove: [],
     };
+    this.prevWrists = null;
+    this.moving = false;
   }
 
   get count(): number {
@@ -165,6 +184,23 @@ export class CalibrationCollector {
     const scale = torsoScaleOf(pose, minConf);
     if (scale === null) return false;
     this.scaleSource = scale.source;
+
+    // Only count frames in which the player is actually holding still. A frame
+    // taken mid-movement describes where the hand was passing through, not
+    // where it rests, and calibration is the origin every later threshold is
+    // measured from. Rejected frames simply do not advance the progress bar,
+    // so a player who keeps moving waits rather than getting a bad reference.
+    const moved = this.frameMotion(pose, scale.value);
+    this.prevWrists = {
+      left: { x: pose.leftWrist.x, y: pose.leftWrist.y },
+      right: { x: pose.rightWrist.x, y: pose.rightWrist.y },
+    };
+    if (moved === null) return false;
+    if (moved > PERCEPTION_CONFIG.calibrationMaxMotion) {
+      this.moving = true;
+      return false;
+    }
+    this.moving = false;
 
     const shoulders = midpoint(pose.leftShoulder, pose.rightShoulder);
     this.acc.torso.push(scale.value);

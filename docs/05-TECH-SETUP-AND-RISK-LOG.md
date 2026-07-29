@@ -399,6 +399,38 @@ Run 3, build `8525a1b`, Android Chrome, the full 80 trials, all four punch types
 
 **Standing instruction for the next run: stand so your hips are *only just* in shot, not further.** Torso scale should read ≥ 0.35 on the calibration screen. It is now displayed there alongside guard jitter.
 
+**20. (New, 2026-07-29) Run 4: the clamp worked, and exposed that the whole detection origin was wrong. Also — the calibration warning was ignored.**
+Status: **THREE FIXES, ALL REGRESSION-TESTED. Not yet re-measured.**
+
+Run 4, build `d54443a`, 80 trials, 0 detected.
+
+```
+  attempts 8 · detected 0 · rejected 0 · timed out 8
+  rejected by gate: (empty)
+  torso scale 0.370 (shoulder-hip) — up from 0.243, framing was corrected
+  WARNING  left fist moved 0.31 torso units while holding guard (limit 0.13)
+  WARNING  right fist moved 0.32 torso units while holding guard (limit 0.13)
+```
+
+**The warnings added in entry 19 fired, correctly, and the run went ahead anyway.** They named the exact defect that then caused the failure. A warning that can be walked past is not a control; the run button is now disabled when a calibration carries warnings, behind an explicit "run anyway — I understand the result will not be usable" acknowledgement.
+
+**Root cause of the 0.31 jitter: calibration sampled while the player was still moving.** `CalibrationCollector.sample()` accepted every frame from the instant the button was tapped — including walking back into shot and raising the hands into guard. The median guard position therefore landed somewhere along that path, and the 90th-percentile spread described the movement rather than the noise. 0.31 torso units is roughly a third of a torso; no tracker is that bad.
+
+**Consequence, and why it produced timeouts rather than rejections.** With jitter at 0.31 the re-arm radius clamped to 0.24 — *smaller than the resting wobble*. The fist could therefore never read as "back at guard": 8 of 80 punches managed to launch at all, and every one of those timed out without the episode ever closing. Zero punches were evaluated. Note this is the mirror image of run 3's failure and has the same origin — entry 19's clamp did not cause it, it uncovered it.
+
+**The deeper defect the tests then exposed: excursion was measured from a fixed calibration snapshot.** Every gate assumed the calibrated guard is where the hand actually returns to. When that snapshot is wrong, the error is a permanent bias on every subsequent measurement, not a one-off. Detection now maintains a **rolling resting-excursion baseline** (minimum over ~1.5 s — a punch can only raise excursion, so it cannot drag the floor down) and measures travel from *that*. A mis-calibrated guard becomes an offset that cancels.
+
+**Three fixes, each with a test that fails without it:**
+1. **Calibration ignores frames taken while moving** (`calibrationMaxMotion` = 0.05 torso units/frame; a hand travelling into position covers ~0.13/frame at 15 FPS). The progress counter now advances only on still frames, so a player who keeps moving waits instead of getting a bad reference. Test: movement frames followed by held guard must produce jitter under the usable limit.
+2. **Travel is measured from the rolling resting baseline**, and an episode also closes on **retraction to 50% of its own peak** — not only on returning inside the guard radius. Test: a punch under a guard reference offset by 0.35 torso units must still be evaluated.
+3. **Timeouts are recorded** with what they reached. Run 4 reported 8 timeouts against an empty rejection log, so there was no way to see how far those punches got.
+
+63 tests pass.
+
+**Still true, and worth stating plainly: detection has not succeeded on a real thrown punch.** Four runs, four distinct defects, each found and fixed. The failures have moved steadily downstream — from measuring the wind-up (run 2), to an unreachable gate (run 3), to episodes that never close (run 4) — which is progress, but it is not a result. Nothing here should be recorded as Milestone 1 advancing.
+
+**One item for the next run to confirm:** run 4 was taken in `southpaw` stance where runs 1–3 were `orthodox`. If that was not deliberate, the spoken prompts asked for the wrong hands throughout, which would corrupt the hand and type labels independently of anything above. Confirm the stance before starting.
+
 ## Instruction for whoever (or whatever) is executing this plan
 
 When any of the above is investigated and resolved, update its status and findings in place rather than just proceeding silently — this file is meant to make the project's actual state of knowledge visible at a glance, not to be a one-time planning artifact that goes stale.

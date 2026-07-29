@@ -8,6 +8,7 @@ import type { PunchEvent } from "./punchTypes";
 import { PERCEPTION_CONFIG } from "../config/tuning";
 import { blockIntro, handFor, repCue } from "./punchScript";
 import { PUNCH_TYPES } from "../debug/confusionMatrix";
+import { CalibrationCollector } from "./calibration";
 
 // These tests check the perception layer's PLUMBING against idealised motion.
 // They deliberately do not claim anything about real-world accuracy — see the
@@ -344,5 +345,80 @@ describe("jitter-scaled gates (regression: 2026-07-29 far-framing run)", () => {
     const c = new PunchClassifier();
     for (const f of syntheticIdle(120)) c.update(f, mild, f.timestamp);
     expect(c.diagnostics.detections).toBe(0);
+  });
+});
+
+// Reproduces run 4 (build d54443a, 2026-07-29 17:07): 80 punches, 8 attempts,
+// 0 detections, 0 rejections, **8 timeouts**. Measured guard jitter was 0.31
+// torso units — larger than the clamped re-arm radius (0.24) — so the fist
+// could never read as "back at guard" and no episode ever closed.
+describe("episode closing (regression: 2026-07-29 timeout run)", () => {
+  it("closes an episode when the fist retracts, even if guard was mis-calibrated", () => {
+    // Guard reference offset from where the hand actually rests. This is what a
+    // calibration taken while the player was still settling produces, and it is
+    // not recoverable by tuning — the reference point itself is wrong.
+    const OFFSET = {
+      ...CAL,
+      guardWrist: {
+        left: { x: -0.167 - 0.35, y: -0.167 - 0.35 },
+        right: { x: 0.167 + 0.35, y: -0.167 - 0.35 },
+      },
+    };
+    const c = new PunchClassifier();
+    for (const f of syntheticPunch("straight", { hand: "left", frames: 8 })) {
+      c.update(f, OFFSET, f.timestamp);
+    }
+    const d = c.diagnostics;
+    expect(
+      d.detections + d.rejections,
+      `every episode timed out (${d.timeouts}) — none ever closed, so the punch ` +
+        `was never evaluated at all`
+    ).toBeGreaterThan(0);
+  });
+
+  it("records what a timed-out episode reached, so a timeout can be diagnosed", () => {
+    const NEVER_RETURNS = {
+      ...CAL,
+      guardWrist: {
+        left: { x: -5, y: -5 },
+        right: { x: 5, y: -5 },
+      },
+    };
+    const c = new PunchClassifier();
+    for (const f of syntheticPunch("straight", { hand: "left", frames: 8 })) {
+      c.update(f, NEVER_RETURNS, f.timestamp);
+    }
+    const d = c.diagnostics;
+    if (d.timeouts > 0) {
+      expect(
+        d.recent.some((r) => r.reason.includes("timeout")),
+        "timeouts produced no diagnostic record — run 4 had 8 timeouts and an empty rejection log"
+      ).toBe(true);
+    }
+  });
+});
+
+// Run 4 recorded 0.31 torso units of guard "jitter" — a third of a torso. That
+// is not tracker noise, it is the player walking back and raising their hands
+// while calibration was already sampling.
+describe("calibration stillness (regression: 2026-07-29 jitter run)", () => {
+  it("ignores frames taken while the player is still moving", () => {
+    const c = new CalibrationCollector();
+    // Movement first, exactly as a player settling into stance produces.
+    for (const f of syntheticPunch("straight", { hand: "left", frames: 10 })) {
+      c.sample(f);
+    }
+    // Then a genuine held guard.
+    for (const f of syntheticIdle(60)) c.sample(f);
+
+    const cal = c.finish("orthodox");
+    expect(cal).not.toBeNull();
+    for (const side of ["left", "right"] as const) {
+      expect(
+        cal!.guardJitter[side],
+        `${side} jitter ${cal!.guardJitter[side].toFixed(3)} — the moving frames ` +
+          `were folded into the guard reference`
+      ).toBeLessThan(PERCEPTION_CONFIG.maxUsableGuardJitter);
+    }
   });
 });

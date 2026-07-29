@@ -140,6 +140,7 @@ export function PunchHarness({
   // rather than being invisibly baked into the later trials.
   const [conditions, setConditions] = useState<RunConditions | null>(null);
   const [recovered, setRecovered] = useState(false);
+  const [overrideCal, setOverrideCal] = useState(false);
 
   const startCollection = useCallback(() => {
     setTrials([]);
@@ -343,8 +344,9 @@ export function PunchHarness({
               <div className="bar-fill" style={{ width: `${pct}%` }} />
             </div>
             <p className="muted small">
-              {calibrationProgress} / {PERCEPTION_CONFIG.calibrationMinSamples} good
-              frames
+              {calibrationProgress} / {PERCEPTION_CONFIG.calibrationMinSamples} still
+              frames — the count only advances while you are holding your guard
+              steady, so it pauses if you are still settling into position.
             </p>
             <TrackingChecklist statusRef={detection.landmarkStatus} />
           </>
@@ -372,8 +374,26 @@ export function PunchHarness({
             ))}
             <div className="row">
               <button onClick={() => setStep("free")}>Free practice</button>
-              <button onClick={startCollection}>Start measured run</button>
+              <button
+                onClick={startCollection}
+                disabled={calibrationWarnings(calibration).length > 0 && !overrideCal}
+              >
+                Start measured run
+              </button>
             </div>
+            {calibrationWarnings(calibration).length > 0 && (
+              // Run 4 was six minutes and eighty punches thrown on a
+              // calibration the app had already diagnosed in writing. A warning
+              // that can be walked past is not a warning.
+              <label className="toggle">
+                <input
+                  type="checkbox"
+                  checked={overrideCal}
+                  onChange={(e) => setOverrideCal(e.target.checked)}
+                />
+                run anyway — I understand the result will not be usable
+              </label>
+            )}
           </>
         ) : (
           <button onClick={() => startCalibration(stance)}>

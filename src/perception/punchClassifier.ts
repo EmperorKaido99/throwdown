@@ -10,6 +10,9 @@
 
 import type { PoseFrame, Keypoint } from "../pose/poseTypes";
 import { PERCEPTION_CONFIG as C } from "../config/tuning";
+
+/** Samples used for the resting-excursion baseline (~1.5s at 20 FPS). */
+const RESTING_WINDOW = 30;
 import { allVisible, angleDeg, dist } from "./geometry";
 import type { CalibrationData } from "./calibration";
 import {
@@ -128,6 +131,24 @@ class HandTracker {
    * gate, peak excursion actually seen 1.54 against a 0.13 gate.
    */
   private clearedGuard = false;
+  /**
+   * Excursion the fist sits at when it is NOT punching, as a rolling minimum.
+   *
+   * Everything used to be measured from the guard position recorded at
+   * calibration, which assumes that snapshot is where the hand actually rests.
+   * Run 4 (2026-07-29) showed the cost when it is not: calibration had been
+   * taken while the player was still settling, so the reference sat ~0.3 torso
+   * units from the real guard. The fist's resting excursion therefore exceeded
+   * the re-arm radius permanently — it could never read as "at guard", so 80
+   * punches produced 8 launches and not one closed episode.
+   *
+   * Measuring travel from where the fist actually rests makes a wrong
+   * calibration an offset that cancels, instead of a permanent bias. The
+   * calibrated guard is still the origin; this just removes its error.
+   */
+  private restingExcursion = 0;
+  /** Resting level at the moment the current episode launched. */
+  private launchResting = 0;
   private speed = 0;
   private side: HandSide;
   private diag: ClassifierDiagnostics;
@@ -152,6 +173,8 @@ class HandTracker {
     this.phase = "guard";
     this.speed = 0;
     this.clearedGuard = false;
+    this.restingExcursion = 0;
+    this.launchResting = 0;
     this.lastPunchAt = -Infinity;
   }
 
@@ -236,6 +259,14 @@ class HandTracker {
 
     this.speed = s.speed;
 
+    // Rolling minimum over roughly the last 1.5s. A punch only ever raises
+    // excursion, so it cannot drag this down; what it tracks is the floor the
+    // fist keeps returning to.
+    const window = this.history.slice(-RESTING_WINDOW);
+    let lowest = Infinity;
+    for (const w of window) lowest = Math.min(lowest, w.excursion);
+    this.restingExcursion = Number.isFinite(lowest) ? lowest : 0;
+
     // Running maxima, independent of detection — these reveal an unreachable gate.
     const peak = this.diag.peakSeen[this.side];
     peak.excursion = Math.max(peak.excursion, s.excursion);
@@ -287,7 +318,8 @@ class HandTracker {
     // Launch when the fist leaves guard and is still moving away from it.
     // Requiring the previous sample to sit inside the guard radius is the
     // re-arming rule: an already-extended hand can't re-trigger on small drift.
-    const nearGuard = prev.excursion < this.reArmExcursion(cal);
+    const nearGuard =
+      prev.excursion - this.restingExcursion < this.reArmExcursion(cal);
     const leaving = s.excursion > prev.excursion;
 
     if (nearGuard && leaving) {
@@ -299,6 +331,7 @@ class HandTracker {
       // fist actually clears the guard radius.
       this.phase = "punching";
       this.clearedGuard = false;
+      this.launchResting = this.restingExcursion;
       this.launchIndex = this.history.length - 2;
       this.peakIndex = this.history.length - 1;
     }
@@ -320,9 +353,10 @@ class HandTracker {
     }
 
     const reArm = this.reArmExcursion(cal);
+    const travel = s.excursion - this.launchResting;
 
     // The fist has genuinely left guard. Only now is this a punch attempt.
-    if (!this.clearedGuard && s.excursion > reArm) {
+    if (!this.clearedGuard && travel > reArm) {
       this.clearedGuard = true;
       this.diag.launches++;
     }
@@ -331,14 +365,25 @@ class HandTracker {
       // Left guard and never came back in a plausible time — a reach or a
       // block, not a punch. A wobble that never cleared guard at all is not
       // even that, and is dropped without polluting the rejection log.
-      if (this.clearedGuard) this.diag.timeouts++;
+      if (this.clearedGuard) {
+        this.diag.timeouts++;
+        this.recordTimeout(launch, this.history[this.peakIndex], now);
+      }
       this.abort();
       return null;
     }
 
-    // Not home yet — or never actually left. Either way the episode is not
-    // over, and finalising here would measure the wind-up instead of the punch.
-    if (s.excursion > reArm || !this.clearedGuard) return null;
+    if (!this.clearedGuard) return null;
+
+    // The episode is over when the fist is back at guard, OR when it has
+    // clearly retracted from its own peak. The second condition exists because
+    // the first trusts the calibrated guard point, and a guard point taken
+    // while the player was still settling is simply wrong — run 4 timed out on
+    // all 8 attempts for exactly that reason.
+    const peakTravel = this.history[this.peakIndex].excursion - this.launchResting;
+    const home = travel <= reArm;
+    const retracted = travel <= peakTravel * C.retractionFraction;
+    if (!home && !retracted) return null;
 
     // Fist is back at guard: the episode is complete. Decide whether the
     // motion we just saw actually qualifies.
@@ -346,6 +391,27 @@ class HandTracker {
     this.phase = "guard";
     if (done) this.lastPunchAt = now;
     return done;
+  }
+
+  /**
+   * A timed-out episode leaves no trace otherwise. Run 4 reported 8 timeouts
+   * against an empty rejection log, and there was no way to tell from the
+   * report how far those punches had travelled before the episode stalled.
+   */
+  private recordTimeout(launch: Sample, peak: Sample, now: number): void {
+    this.diag.recent.unshift({
+      hand: this.side,
+      reason: `timeout after ${(now - launch.t).toFixed(0)}ms, never returned to guard`,
+      peakExcursion: Math.max(0, peak.excursion - this.launchResting),
+      peakExtension: peak.extension,
+      extensionGain: peak.extension - launch.extension,
+      elbowOpening: peak.elbowAngle - launch.elbowAngle,
+      peakSpeed: this.speed,
+      durationMs: now - launch.t,
+      samples: Math.max(0, this.peakIndex - this.launchIndex + 1),
+      at: peak.t,
+    });
+    this.diag.recent.length = Math.min(this.diag.recent.length, 12);
   }
 
   private finalize(
@@ -367,7 +433,9 @@ class HandTracker {
         Math.hypot(b.wrist.x - a.wrist.x, b.wrist.y - a.wrist.y) / cal.torsoScale;
       peakSpeed = Math.max(peakSpeed, b.speed);
     }
-    const peakExcursion = peak.excursion;
+    // Travel from where the fist actually rested, not from the calibrated guard
+    // point — see restingExcursion.
+    const peakExcursion = Math.max(0, peak.excursion - this.launchResting);
     // Mean outward velocity, torso-widths per second. Gated instead of PEAK
     // speed, which is frame-rate dependent: a slower camera under-reports the
     // true peak, so the same punch would pass at 30 FPS and fail at 15. Mean
