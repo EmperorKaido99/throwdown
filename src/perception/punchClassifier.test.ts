@@ -6,6 +6,8 @@ import { angleDeg } from "./geometry";
 import { torsoScaleOf } from "../pose/poseTypes";
 import type { PunchEvent } from "./punchTypes";
 import { PERCEPTION_CONFIG } from "../config/tuning";
+import { blockIntro, handFor, repCue } from "./punchScript";
+import { PUNCH_TYPES } from "../debug/confusionMatrix";
 
 // These tests check the perception layer's PLUMBING against idealised motion.
 // They deliberately do not claim anything about real-world accuracy — see the
@@ -269,5 +271,41 @@ describe("detection episode boundaries (regression: 2026-07-29 phone run)", () =
         `while the fist reached ${d.peakSeen.left.excursion.toFixed(3)} — ` +
         `the episode ended before the punch did`
     ).toBe(true);
+  });
+});
+
+// The spoken prompt is now the primary instruction — the player is too far away
+// to read the screen. If it names the wrong hand, the player throws the wrong
+// hand and the confusion matrix records a classifier error that never happened.
+describe("spoken prompt script", () => {
+  it("maps punch type and stance to the correct physical hand", () => {
+    expect(handFor("jab", "orthodox")).toBe("left");
+    expect(handFor("hook", "orthodox")).toBe("left");
+    expect(handFor("cross", "orthodox")).toBe("right");
+    expect(handFor("uppercut", "orthodox")).toBe("right");
+
+    // Southpaw mirrors every one of them.
+    expect(handFor("jab", "southpaw")).toBe("right");
+    expect(handFor("hook", "southpaw")).toBe("right");
+    expect(handFor("cross", "southpaw")).toBe("left");
+    expect(handFor("uppercut", "southpaw")).toBe("left");
+  });
+
+  it("names the hand in every per-rep cue", () => {
+    for (const stance of ["orthodox", "southpaw"] as const) {
+      for (const type of PUNCH_TYPES) {
+        const cue = repCue(type, stance);
+        expect(cue).toContain(type);
+        expect(cue).toContain(handFor(type, stance));
+      }
+    }
+  });
+
+  it("calls out a hand switch only when the hand actually changes", () => {
+    // jab (lead) -> cross (rear) switches hands; jab -> hook does not.
+    expect(blockIntro("cross", "orthodox", 20, "jab")).toContain("Switch hands");
+    expect(blockIntro("hook", "orthodox", 20, "jab")).not.toContain("Switch hands");
+    // The first block has nothing to switch from.
+    expect(blockIntro("jab", "orthodox", 20, null)).not.toContain("Switch hands");
   });
 });

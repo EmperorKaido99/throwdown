@@ -590,3 +590,25 @@
   border: 1px solid #2b3a25;
   background: #131a11;
 }
+
+/* Which hand, stated as loudly as which punch. The player is across the room
+   and cannot read a footnote — and a punch thrown with the wrong hand is
+   scored as a classifier error rather than a misheard prompt. */
+.prompt-hand {
+  font-size: clamp(1.1rem, 5vw, 1.5rem);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #7dd3fc;
+  margin-top: 0.1rem;
+}
+
+.switch-cue {
+  font-size: clamp(1.1rem, 6vw, 1.6rem);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #06210f;
+  background: #fbbf24;
+  border-radius: 8px;
+  padding: 0.3rem 0.5rem;
+  margin-bottom: 0.4rem;
+}

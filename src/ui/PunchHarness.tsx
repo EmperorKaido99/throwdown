@@ -14,6 +14,13 @@ import { PunchGuide, PunchGuideGrid } from "./PunchGuide";
 import { DodgeIndicator } from "./DodgeIndicator";
 import { DetectionDiagnostics } from "./DetectionDiagnostics";
 import { cancelSpeech, primeSpeech, speak, speechSupported } from "./speech";
+import {
+  LEAD_IN_SPEECH,
+  blockIntro,
+  blockIntroLines,
+  handFor,
+  repCue,
+} from "../perception/punchScript";
 import { useWakeLock } from "./useWakeLock";
 import {
   formatRunConditions,
@@ -46,7 +53,18 @@ const PROMPT_HAND: Record<PunchType, "lead" | "rear"> = {
   uppercut: "rear",
 };
 
-const READY_MS = 1400;
+/**
+ * Protocol timing.
+ *
+ * THROW_MS is the capture window and is deliberately unchanged from run 2 —
+ * it is the only one of these that the confusion matrix depends on. The rest
+ * is preparation, and run 2 showed it was too short on a phone: the player taps
+ * start, then has to walk back into frame, so the first trials were being
+ * thrown mid-walk or not at all.
+ */
+const LEAD_IN_MS = 8000;
+const ANNOUNCE_MS = 6000;
+const READY_MS = 1800;
 const THROW_MS = 2000;
 
 interface Props {
@@ -90,7 +108,9 @@ export function PunchHarness({
   // ---- guided collection ----
   const [trials, setTrials] = useState<Trial[]>([]);
   const [trialIndex, setTrialIndex] = useState(0);
-  const [windowPhase, setWindowPhase] = useState<"ready" | "throw">("ready");
+  const [windowPhase, setWindowPhase] = useState<
+    "leadin" | "announce" | "ready" | "throw"
+  >("leadin");
 
   const schedule = useMemo(() => {
     const out: PunchType[] = [];
@@ -122,7 +142,7 @@ export function PunchHarness({
   const startCollection = useCallback(() => {
     setTrials([]);
     setTrialIndex(0);
-    setWindowPhase("ready");
+    setWindowPhase("leadin");
     captured.current = null;
     capturing.current = false;
     // Zero the gate counters so the report describes THIS run, not whatever
@@ -155,12 +175,36 @@ export function PunchHarness({
       return;
     }
 
-    if (windowPhase === "ready") {
+    const current = schedule[trialIndex];
+    const previous = trialIndex > 0 ? schedule[trialIndex - 1] : null;
+
+    // Nothing is captured outside the throw window, in every phase below.
+    if (windowPhase !== "throw") {
       capturing.current = false;
       captured.current = null;
-      // Announce at the START of the ready window, so the name has finished
-      // speaking before the throw window opens.
-      if (voicePrompts && schedule[trialIndex]) speak(schedule[trialIndex]);
+    }
+
+    if (windowPhase === "leadin") {
+      if (voicePrompts) speak(LEAD_IN_SPEECH);
+      const id = setTimeout(() => setWindowPhase("announce"), LEAD_IN_MS);
+      return () => clearTimeout(id);
+    }
+
+    if (windowPhase === "announce") {
+      // Long-form coaching happens here, once per block, where there is time
+      // for it. Between reps there is not.
+      if (voicePrompts) {
+        speak(blockIntro(current, stance, repsPerType, previous), 1.0);
+      }
+      const id = setTimeout(() => setWindowPhase("ready"), ANNOUNCE_MS);
+      return () => clearTimeout(id);
+    }
+
+    if (windowPhase === "ready") {
+      // Naming the hand is the point: without it the player has to remember
+      // that a jab is the lead hand and which of their hands leads, and a
+      // lapse gets scored as a classifier error.
+      if (voicePrompts) speak(repCue(current, stance));
       const id = setTimeout(() => setWindowPhase("throw"), READY_MS);
       return () => clearTimeout(id);
     }
@@ -177,18 +221,20 @@ export function PunchHarness({
       setTrials((prev) => [
         ...prev,
         {
-          prompted: schedule[trialIndex],
+          prompted: current,
           detected: e ? e.type : null,
           event: e,
           at: performance.now(),
         },
       ]);
       captured.current = null;
+      const next = schedule[trialIndex + 1];
       setTrialIndex((i) => i + 1);
-      setWindowPhase("ready");
+      // Only re-announce when the punch type actually changes.
+      setWindowPhase(next !== undefined && next !== current ? "announce" : "ready");
     }, THROW_MS);
     return () => clearTimeout(id);
-  }, [step, windowPhase, trialIndex, schedule, voicePrompts]);
+  }, [step, windowPhase, trialIndex, schedule, voicePrompts, stance, repsPerType]);
 
   const abortCollection = useCallback(() => {
     cancelSpeech();
@@ -423,12 +469,50 @@ export function PunchHarness({
     const current = schedule[trialIndex];
     const done = trialIndex;
     const next = schedule[trialIndex + 1];
+    const previous = trialIndex > 0 ? schedule[trialIndex - 1] : null;
+
+    if (windowPhase === "leadin") {
+      return (
+        <div className="harness collect">
+          <div className="prompt-type">GET SET</div>
+          <p className="muted">
+            Stand back so your hips are in shot, hands up in guard. The first
+            punch is called in a few seconds.
+          </p>
+          <button className="abort-btn" onClick={abortCollection}>
+            Stop run
+          </button>
+        </div>
+      );
+    }
+
+    if (windowPhase === "announce") {
+      const intro = blockIntroLines(current, stance, repsPerType, previous);
+      return (
+        <div className="harness collect">
+          <div className="muted">{done} / {schedule.length}</div>
+          {intro.switching && <div className="switch-cue">SWITCH HANDS</div>}
+          <div className="prompt-type">{intro.heading}</div>
+          <div className="muted">{intro.hand}</div>
+          <PunchGuide type={current} stance={stance} />
+          <p className="muted small">{intro.cue}</p>
+          <button className="abort-btn" onClick={abortCollection}>
+            Stop run{trials.length > 0 ? ` (keep ${trials.length})` : ""}
+          </button>
+        </div>
+      );
+    }
+
     return (
       <div className="harness collect">
         <div className="muted">{done} / {schedule.length}</div>
         <div className="prompt-type">{current?.toUpperCase()}</div>
-        <div className="muted">
-          {PROMPT_HAND[current] === "lead" ? "lead hand" : "rear hand"}
+        <div className="prompt-hand">
+          {handFor(current, stance).toUpperCase()} HAND
+          <span className="muted small">
+            {" "}
+            ({PROMPT_HAND[current] === "lead" ? "lead" : "rear"})
+          </span>
         </div>
 
         {current && <PunchGuide type={current} stance={stance} />}

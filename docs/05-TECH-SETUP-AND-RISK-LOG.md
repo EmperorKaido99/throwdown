@@ -349,6 +349,24 @@ All 55 tests pass, including the pre-existing 53 (four punch shapes at 10/12/15/
 
 **Report improvements shipped with the fix,** so a repeat failure names its own cause: the last six rejections now print their actual peak excursion, mean speed, sample count and duration, alongside the timeout count. The contradiction above took a code read to resolve; the next one should not.
 
+**18. (New, 2026-07-29) The spoken prompt never said which HAND, and the run had no lead-in.**
+Status: FIXED. Not yet exercised in a measured run.
+
+Raised by the project owner after run 2, in the plainest possible terms: "I'm just punching and looking dumb."
+
+Two validity defects, both invisible from a desk and both obvious on a phone at boxing range:
+
+- **The cue named the punch but not the hand.** It said "jab", and the player had to remember that a jab is the lead hand, and which of their own hands leads in their stance. The screen said "lead hand" — unreadable from where the player stands, which is the whole reason the cues are spoken. Every lapse is scored as a *classifier* error, so this contaminates the lead-vs-rear bar (95%) with the player's recall rather than the perception layer's accuracy. The cue is now `"cross, right hand"`, and the on-screen hand is as large as the punch name.
+- **The run began the instant the button was tapped.** On a phone the player then has to walk two metres back into frame, so the opening trials were thrown mid-walk, out of frame, or not at all. There is now an 8 s lead-in.
+
+Also added, because the protocol had no room to explain anything: a spoken block intro at each change of punch type — `"Switch hands. Next up, 20 crosses. Rear hand, your right. Straight from the back hand, turn your hip into it."` — with a large `SWITCH HANDS` banner and the trajectory guide on screen. Long-form coaching goes here, where there is a 6 s budget for it; between reps there is not.
+
+**Timing change, and its limits.** The ready window went from 1400 ms to 1800 ms to fit a cue that names the hand. **The 2000 ms capture window is deliberately unchanged** — it is the only one of these the confusion matrix depends on, and changing it would make run 3 non-comparable with run 1. The added lead-in and block intros lengthen an 80-trial run from roughly 4.5 to 6.5 minutes; watch for fatigue effects in the later blocks, and note the report's start-vs-end FPS is also a fatigue proxy.
+
+**Tested:** the stance-to-hand mapping is unit-tested in both stances for all four punch types, every per-rep cue is asserted to contain its hand, and "Switch hands" is asserted to appear only when the hand actually changes. That mapping being wrong would silently invert the label side of the matrix.
+
+**Rejected: a Python TTS library.** Proposed by the project owner. It cannot work in this architecture — the app is static files served from Vercel and executes entirely in the player's browser, with no Python runtime anywhere in the stack. The existing Web Speech synthesis is already the correct mechanism and is what has been speaking the prompts. If voice *consistency across devices* later turns out to matter for a measurement, the supportable route is pre-rendering the fixed set of cues to audio files at build time (with any TTS, Python included) and shipping them as static assets — at the cost of ~40 more assets and losing the ability to speak a rep count. Not needed yet.
+
 ## Instruction for whoever (or whatever) is executing this plan
 
 When any of the above is investigated and resolved, update its status and findings in place rather than just proceeding silently — this file is meant to make the project's actual state of knowledge visible at a glance, not to be a one-time planning artifact that goes stale.
