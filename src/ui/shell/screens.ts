@@ -6,7 +6,7 @@
 export type Screen = "menu" | "train" | "fight" | "howto" | "settings";
 
 export const SCREEN_TITLES: Record<Screen, string> = {
-  menu: "Shadow Box",
+  menu: "Throwdown",
   train: "Training",
   fight: "Fight",
   howto: "How to play",

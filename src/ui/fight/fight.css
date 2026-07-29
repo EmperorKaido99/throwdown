@@ -367,3 +367,78 @@
   font-size: 0.85rem;
   line-height: 1.45;
 }
+
+/* ---------- stamina segments ---------- */
+
+.hp-segments {
+  display: flex;
+  gap: 3px;
+}
+
+.hp-seg {
+  flex: 1;
+  height: 13px;
+  border-radius: 3px;
+  border: 1px solid #263141;
+  background: #1a2230;
+  transition: background 120ms linear;
+}
+
+.hp-seg-full {
+  background: linear-gradient(180deg, #5fe08c, #22c55e);
+  border-color: #2f8f4f;
+}
+
+.hp-seg-low {
+  background: linear-gradient(180deg, #ff8b8b, #dc2626);
+  border-color: #a02b2b;
+}
+
+/* Capacity permanently lost to knockdowns — the price stays on screen. */
+.hp-seg-lost {
+  background: repeating-linear-gradient(
+    45deg,
+    #2a1a1f,
+    #2a1a1f 3px,
+    #1a1216 3px,
+    #1a1216 6px
+  );
+  border-color: #4a2830;
+}
+
+.hp-rounds {
+  color: #f08a24;
+  letter-spacing: 0.1em;
+}
+
+/* ---------- count / round-break overlay ---------- */
+
+.fight-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  background: rgba(8, 12, 18, 0.55);
+  pointer-events: none;
+}
+
+.count-number {
+  font-size: clamp(3.5rem, 18vw, 7rem);
+  font-weight: 900;
+  line-height: 1;
+  color: #f08a24;
+  text-shadow: 0 4px 24px rgba(0, 0, 0, 0.8);
+  font-variant-numeric: tabular-nums;
+}
+
+.count-label {
+  font-size: clamp(0.9rem, 4vw, 1.2rem);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #e6edf5;
+}

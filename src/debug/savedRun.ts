@@ -58,7 +58,7 @@ export function clearRun(): void {
 export async function shareReport(report: string): Promise<"shared" | "copied" | "failed"> {
   if (navigator.share) {
     try {
-      await navigator.share({ title: "Shadow Box measured run", text: report });
+      await navigator.share({ title: "Throwdown measured run", text: report });
       return "shared";
     } catch {
       // User dismissed the sheet, or the browser refused. Fall through to copy.

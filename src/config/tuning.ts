@@ -289,9 +289,28 @@ export const FIGHT_CONFIG = {
   /** Simulation ticks per second. Fixed — the sim never sees wall time. */
   tickRate: 60,
   startingHealth: 100,
-  /** Round length in ticks. 90s at 60Hz. */
-  roundTicks: 90 * 60,
 
+  // --- bout structure ---
+  /** Rounds in a bout. */
+  rounds: 3,
+  /** Round length in ticks — 3 minutes at 60Hz. */
+  roundTicks: 180 * 60,
+  /** Pause between rounds. */
+  roundBreakTicks: 5 * 60,
+
+  // --- knockdowns ---
+  /** The referee's count. A downed boxer must rise before this elapses. */
+  countTicks: 10 * 60,
+  /**
+   * Chance of rising, indexed by how many times you have already been down
+   * this bout. Getting up gets harder every time, which is what makes a
+   * knockdown frightening rather than a free reset.
+   */
+  riseChance: [0.95, 0.75, 0.45, 0.15] as readonly number[],
+  /** Stamina permanently lost from your maximum for each knockdown taken. */
+  maxHealthLossPerKnockdown: 20,
+
+  // --- punches ---
   /**
    * Ticks between a punch being thrown and it resolving.
    *
@@ -313,6 +332,7 @@ export const FIGHT_CONFIG = {
     uppercut: 10,
   } as Record<PunchTypeName, number>,
 
+  // --- defence ---
   /**
    * Head lean, 0..1, at which a straight punch is slipped. Read from the
    * defender's head state at the tick the punch RESOLVES, not when it was
@@ -330,6 +350,19 @@ export const FIGHT_CONFIG = {
   uppercutDuckPenalty: 1.6,
   /** Damage multiplier when the defender is already stunned. */
   stunnedDamageMultiplier: 1.25,
+
+  /**
+   * Slipping a punch opens a counter window: for this many ticks your next
+   * punch hits far harder.
+   *
+   * This is the single most important rule in the fight. Without it, head
+   * movement is purely defensive and there is no reason to take the risk of
+   * moving rather than simply staying out of range. With it, defence is how
+   * you create offence — which also happens to be the mechanic our head
+   * tracking supports best.
+   */
+  counterWindowTicks: 45,
+  counterDamageMultiplier: 1.9,
 } as const;
 
 type PunchTypeName = "jab" | "cross" | "hook" | "uppercut";

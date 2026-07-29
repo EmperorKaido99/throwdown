@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  countRemaining,
   initialFight,
+  isOver,
   stepFight,
   timeRemaining,
   type FightEvent,
   type FightState,
   type FighterInput,
+  type FighterState,
 } from "../../simulation/fightSim";
 import {
   PLAYER1_KEYS,
@@ -148,7 +151,8 @@ export function FightView({ opponent, onExit }: Props) {
   }, [opponent]);
 
   const [p1, p2] = display.fighters;
-  const over = display.status !== "fighting";
+  const over = isOver(display);
+  const count = countRemaining(display);
 
   return (
     <div className="fight">
@@ -158,21 +162,26 @@ export function FightView({ opponent, onExit }: Props) {
         <div className="fight-hud">
           <HealthBar
             label="You"
-            health={p1.health}
+            fighter={p1}
             stunned={p1.stun > 0}
             align="left"
           />
           <div className="fight-clock-box">
             <div className="round-pips">
-              <span className="round-pip active">1</span>
-              <span className="round-pip">2</span>
-              <span className="round-pip">3</span>
+              {Array.from({ length: FIGHT_CONFIG.rounds }, (_, i) => (
+                <span
+                  key={i}
+                  className={`round-pip${i + 1 === display.round ? " active" : ""}`}
+                >
+                  {i + 1}
+                </span>
+              ))}
             </div>
             <div className="fight-clock">{formatClock(display)}</div>
           </div>
           <HealthBar
             label={opponent === "scripted" ? "Sparring bot" : "Player 2"}
-            health={p2.health}
+            fighter={p2}
             stunned={p2.stun > 0}
             align="right"
           />
@@ -187,6 +196,20 @@ export function FightView({ opponent, onExit }: Props) {
             {flash.p2}
           </div>
         )}
+        {count !== null && (
+          <div className="fight-overlay">
+            <div className="count-number">{count}</div>
+            <div className="count-label">
+              {display.fighters[0].down > 0 ? "You are down" : "Opponent is down"}
+            </div>
+          </div>
+        )}
+        {display.status === "roundBreak" && (
+          <div className="fight-overlay">
+            <div className="count-label">End of round {display.round}</div>
+            <div className="count-number">{Math.ceil(timeRemaining(display))}</div>
+          </div>
+        )}
         {over && (
           <div className="fight-result">
             <div className="fight-result-title">
@@ -197,6 +220,10 @@ export function FightView({ opponent, onExit }: Props) {
                     ? "The bot wins"
                     : "Player 2 wins"
                   : "Draw"}
+            </div>
+            <div className="muted small">
+              Rounds {p1.roundsWon}–{p2.roundsWon} · knockdowns taken {p1.knockdowns}–
+              {p2.knockdowns}
             </div>
             <div className="muted small">
               {p1.landed} landed / {p1.thrown} thrown · {p1.evaded} evaded
@@ -253,29 +280,48 @@ function applyFlash(
   }
 }
 
+/**
+ * Stamina as ten discrete segments rather than a smooth bar.
+ *
+ * Segments make a single punch's cost legible at a glance — you can see that a
+ * cross took one block and a counter uppercut took two — where a sliding bar
+ * just shrinks. Segments beyond the fighter's current maximum are drawn as
+ * permanently lost, so the price of a knockdown stays visible for the rest of
+ * the bout.
+ */
 function HealthBar({
   label,
-  health,
+  fighter,
   stunned,
   align,
 }: {
   label: string;
-  health: number;
+  fighter: FighterState;
   stunned: boolean;
   align: "left" | "right";
 }) {
-  const pct = (health / FIGHT_CONFIG.startingHealth) * 100;
+  const SEGMENTS = 10;
+  const per = FIGHT_CONFIG.startingHealth / SEGMENTS;
+  const filled = Math.ceil(fighter.health / per);
+  const capacity = Math.round(fighter.maxHealth / per);
+  const low = fighter.health <= fighter.maxHealth * 0.25;
+
   return (
     <div className={`hp hp-${align}`}>
       <div className="hp-label">
         {label}
         {stunned && <span className="hp-stun">STUNNED</span>}
+        {fighter.roundsWon > 0 && (
+          <span className="hp-rounds">{"\u25CF".repeat(fighter.roundsWon)}</span>
+        )}
       </div>
-      <div className="hp-track">
-        <div
-          className={`hp-fill${pct <= 25 ? " hp-low" : ""}`}
-          style={{ width: `${Math.max(0, pct)}%` }}
-        />
+      <div className="hp-segments">
+        {Array.from({ length: SEGMENTS }, (_, i) => {
+          const index = align === "right" ? SEGMENTS - 1 - i : i;
+          const state =
+            index >= capacity ? "lost" : index < filled ? "full" : "empty";
+          return <span key={i} className={`hp-seg hp-seg-${state}${low && state === "full" ? " hp-seg-low" : ""}`} />;
+        })}
       </div>
     </div>
   );

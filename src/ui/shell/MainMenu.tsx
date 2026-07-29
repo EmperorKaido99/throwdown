@@ -48,7 +48,7 @@ export function MainMenu({ onNavigate, fightReady }: Props) {
   return (
     <div className="menu">
       <header className="menu-head">
-        <h1>Shadow Box</h1>
+        <h1>Throwdown</h1>
         <p className="menu-tag">Webcam boxing. Everything runs on your machine.</p>
       </header>
 
