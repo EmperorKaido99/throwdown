@@ -16,6 +16,8 @@ import {
 } from "../../simulation/inputSources";
 import { FIGHT_CONFIG } from "../../config/tuning";
 import type { PunchType } from "../../perception/punchTypes";
+import { ArenaCanvas } from "./Arena";
+import { NEUTRAL_VIEW, type ArenaView } from "../../render/arena";
 import "./fight.css";
 
 // Milestone 3's playable surface: a real fight, driven by the keyboard.
@@ -53,6 +55,9 @@ export function FightView({ opponent, onExit }: Props) {
     p2: null,
   });
   const running = useRef(true);
+  // What the 3D scene should draw. Written by the simulation loop, read by the
+  // renderer on its own frame — the two run at different rates by design.
+  const arenaView = useRef<ArenaView>({ ...NEUTRAL_VIEW });
 
   const reset = useCallback(() => {
     fight.current = initialFight();
@@ -133,6 +138,7 @@ export function FightView({ opponent, onExit }: Props) {
         }
       }
 
+      arenaView.current = toArenaView(fight.current, keys.current, opponent);
       setDisplay(fight.current);
       if (landed.length > 0) applyFlash(landed, setFlash);
     };
@@ -146,39 +152,41 @@ export function FightView({ opponent, onExit }: Props) {
 
   return (
     <div className="fight">
-      <div className="fight-hud">
-        <HealthBar
-          label="You"
-          health={p1.health}
-          stunned={p1.stun > 0}
-          align="left"
-        />
-        <div className="fight-clock">
-          {over ? "—" : Math.ceil(timeRemaining(display))}
-        </div>
-        <HealthBar
-          label={opponent === "scripted" ? "Sparring bot" : "Player 2"}
-          health={p2.health}
-          stunned={p2.stun > 0}
-          align="right"
-        />
-      </div>
-
       <div className="fight-ring">
-        <Fighter
-          side="left"
-          state={display}
-          index={0}
-          flash={flash.p1}
-          keys={keys}
-        />
-        <Fighter
-          side="right"
-          state={display}
-          index={1}
-          flash={flash.p2}
-          keys={keys}
-        />
+        <ArenaCanvas viewRef={arenaView} />
+
+        <div className="fight-hud">
+          <HealthBar
+            label="You"
+            health={p1.health}
+            stunned={p1.stun > 0}
+            align="left"
+          />
+          <div className="fight-clock-box">
+            <div className="round-pips">
+              <span className="round-pip active">1</span>
+              <span className="round-pip">2</span>
+              <span className="round-pip">3</span>
+            </div>
+            <div className="fight-clock">{formatClock(display)}</div>
+          </div>
+          <HealthBar
+            label={opponent === "scripted" ? "Sparring bot" : "Player 2"}
+            health={p2.health}
+            stunned={p2.stun > 0}
+            align="right"
+          />
+        </div>
+        {flash.p1 && (
+          <div className={`ring-flash mine${flash.p1.startsWith("-") ? " hit" : " miss"}`}>
+            {flash.p1}
+          </div>
+        )}
+        {flash.p2 && (
+          <div className={`ring-flash theirs${flash.p2.startsWith("-") ? " hit" : " miss"}`}>
+            {flash.p2}
+          </div>
+        )}
         {over && (
           <div className="fight-result">
             <div className="fight-result-title">
@@ -212,6 +220,15 @@ export function FightView({ opponent, onExit }: Props) {
       </div>
     </div>
   );
+}
+
+/** mm:ss, matching a ring clock rather than a bare second count. */
+function formatClock(state: FightState): string {
+  if (state.status !== "fighting") return "--:--";
+  const total = Math.ceil(timeRemaining(state));
+  const m = Math.floor(total / 60);
+  const sec = total % 60;
+  return `${m}:${String(sec).padStart(2, "0")}`;
 }
 
 function applyFlash(
@@ -264,55 +281,61 @@ function HealthBar({
   );
 }
 
-function Fighter({
-  side,
-  state,
-  index,
-  flash,
-  keys,
-}: {
-  side: "left" | "right";
-  state: FightState;
-  index: 0 | 1;
-  flash: string | null;
-  keys: React.RefObject<Set<string>>;
-}) {
-  const f = state.fighters[index];
-  const throwing = f.pending.length > 0;
 
-  // Player 1's posture reads from the live keys so it responds on the frame the
-  // key goes down, rather than waiting for the input to survive a tick.
-  const bindings = index === 0 ? PLAYER1_KEYS : PLAYER2_KEYS;
-  const held = keys.current ?? new Set<string>();
-  const leaning = held.has(bindings.leanLeft)
-    ? -1
-    : held.has(bindings.leanRight)
-      ? 1
-      : 0;
-  const ducking = held.has(bindings.duck);
+/**
+ * Maps simulation state onto what the scene should draw.
+ *
+ * Head movement is read from the live keys rather than from the last simulated
+ * tick, so leaning responds on the frame the key goes down instead of waiting
+ * up to 16ms for a tick. Punches come from the simulation, because their timing
+ * IS the game — a glove must arrive exactly when the punch resolves.
+ */
+function toArenaView(
+  state: FightState,
+  keys: Set<string>,
+  opponent: Opponent
+): ArenaView {
+  const posture = (b: KeyBindings) => ({
+    lean: keys.has(b.leanLeft) === keys.has(b.leanRight)
+      ? 0
+      : keys.has(b.leanLeft)
+        ? -1
+        : 1,
+    duck: keys.has(b.duck) ? 1 : 0,
+  });
 
-  return (
-    <div className={`fighter fighter-${side}`}>
-      <div
-        className={`fighter-body${throwing ? " is-throwing" : ""}${
-          f.stun > 0 ? " is-stunned" : ""
-        }`}
-        style={{
-          transform: `translateX(${leaning * 18}px) translateY(${
-            ducking ? 22 : 0
-          }px)`,
-        }}
-      >
-        <div className="fighter-head" />
-        <div className="fighter-torso" />
-      </div>
-      {flash && (
-        <div className={`fighter-flash${flash.startsWith("-") ? " hit" : " miss"}`}>
-          {flash}
-        </div>
-      )}
-    </div>
-  );
+  const inFlight = (index: 0 | 1) => {
+    const p = state.fighters[index].pending[0];
+    if (!p) return null;
+    const remaining = p.resolvesAt - state.tick;
+    return {
+      hand: p.hand,
+      progress: 1 - Math.max(0, remaining) / FIGHT_CONFIG.windupTicks,
+    };
+  };
+
+  const you = posture(PLAYER1_KEYS);
+  // A scripted opponent has no keys; its posture is read back from the same
+  // deterministic function that drives it, one tick behind, which is close
+  // enough for a display value.
+  const them =
+    opponent === "keyboard"
+      ? posture(PLAYER2_KEYS)
+      : (() => {
+          const i = scriptedInput(state.tick);
+          return { lean: i.lean, duck: i.duck };
+        })();
+
+  return {
+    playerLean: you.lean,
+    playerDuck: you.duck,
+    playerStun: state.fighters[0].stun / FIGHT_CONFIG.stunTicks,
+    playerPunch: inFlight(0),
+    opponentLean: them.lean,
+    opponentDuck: them.duck,
+    opponentStun: state.fighters[1].stun / FIGHT_CONFIG.stunTicks,
+    opponentPunch: inFlight(1),
+  };
 }
 
 function Controls({ opponent }: { opponent: Opponent }) {
