@@ -57,6 +57,8 @@ export interface RunConditions {
   repsPerType: number;
   torsoScale: number | null;
   scaleSource: string | null;
+  /** Calibration problems flagged before the run started, if any. */
+  calibrationWarnings: string[];
   /**
    * Detection diagnostics as they stood at the end of the run.
    *
@@ -110,10 +112,8 @@ export function formatRunConditions(c: RunConditions): string {
       c.torsoScale === null ? "unknown" : c.torsoScale.toFixed(3)
     } (${c.scaleSource ?? "unknown"})`
   );
-  if (c.scaleSource === "shoulder-width") {
-    lines.push(
-      "  WARNING         hips were not visible, so torso scale used the weaker shoulder-width fallback — it shrinks as you blade into a stance"
-    );
+  for (const w of c.calibrationWarnings ?? []) {
+    lines.push(`  WARNING         ${w}`);
   }
 
   const d = c.diagnostics;

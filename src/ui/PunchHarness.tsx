@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PoseFrame } from "../pose/poseTypes";
 import { usePunchDetection } from "../perception/usePunchDetection";
+import { calibrationWarnings } from "../perception/calibration";
 import type { PunchEvent, PunchType, Stance } from "../perception/punchTypes";
 import {
   PUNCH_TYPES,
@@ -157,6 +158,7 @@ export function PunchHarness({
       repsPerType,
       torsoScale: calibration?.torsoScale ?? null,
       scaleSource: calibration?.scaleSource ?? null,
+      calibrationWarnings: calibration ? calibrationWarnings(calibration) : [],
       diagnostics: null,
     });
     // iOS Safari only permits synthesis that was started from a user gesture,
@@ -358,11 +360,16 @@ export function PunchHarness({
               {calibration.guardExtension.right.toFixed(2)}
             </p>
             <p className="muted small">
-              scale reference: {calibration.scaleSource}
-              {calibration.scaleSource === "shoulder-width"
-                ? " — hips weren't visible, so scale is approximated from shoulder width. Step back so your hips are in frame for a more stance-robust reference."
-                : ""}
+              scale reference: {calibration.scaleSource} · torso{" "}
+              {calibration.torsoScale.toFixed(2)} · guard jitter L{" "}
+              {calibration.guardJitter.left.toFixed(2)} / R{" "}
+              {calibration.guardJitter.right.toFixed(2)}
             </p>
+            {calibrationWarnings(calibration).map((w) => (
+              <p className="calib-warn" key={w}>
+                {w}
+              </p>
+            ))}
             <div className="row">
               <button onClick={() => setStep("free")}>Free practice</button>
               <button onClick={startCollection}>Start measured run</button>

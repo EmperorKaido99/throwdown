@@ -309,3 +309,40 @@ describe("spoken prompt script", () => {
     expect(blockIntro("jab", "orthodox", 20, null)).not.toContain("Switch hands");
   });
 });
+
+// Reproduces the phone run of 2026-07-29 14:33 (build 8525a1b), 80 trials,
+// 1/80 detected. The rejection log read "excursion 0.90 < 1.28" — but the
+// configured floor is 0.13. The gate had been inflated tenfold by the
+// jitter-scaling in risk log 14 fix 5, which has no upper bound: the player
+// stood far enough back that torso scale halved (0.243 vs 0.536), landmark
+// noise became a large fraction of body size, and the measured guard jitter
+// went to ~0.4 torso units.
+describe("jitter-scaled gates (regression: 2026-07-29 far-framing run)", () => {
+  const NOISY = {
+    ...CAL,
+    // Measured on the device: minExcursion showed as 1.28 = jitter x 3.
+    guardJitter: { left: 0.4267, right: 0.36 },
+  };
+
+  it("does not let measured jitter raise the punch gate above a real punch", () => {
+    const c = new PunchClassifier();
+    for (const f of syntheticPunch("straight", { hand: "left" })) {
+      c.update(f, NOISY, f.timestamp);
+    }
+    const d = c.diagnostics;
+    expect(
+      d.detections,
+      `a clean synthetic punch was not detected under a noisy calibration; ` +
+        `rejections: ${JSON.stringify(d.byReason)}`
+    ).toBe(1);
+  });
+
+  it("still adapts the gate upward for mildly noisy tracking", () => {
+    // The adaptation is worth keeping — it is what stops a shaky stance
+    // producing phantom punches. Only its unbounded growth is the bug.
+    const mild = { ...CAL, guardJitter: { left: 0.05, right: 0.05 } };
+    const c = new PunchClassifier();
+    for (const f of syntheticIdle(120)) c.update(f, mild, f.timestamp);
+    expect(c.diagnostics.detections).toBe(0);
+  });
+});

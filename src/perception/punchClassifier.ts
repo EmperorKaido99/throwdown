@@ -254,17 +254,28 @@ class HandTracker {
    * noisy camera raises the bar automatically instead of firing phantom punches.
    */
   private minExcursion(cal: CalibrationData): number {
-    return Math.max(
-      C.minPunchExcursion,
-      cal.guardJitter[this.side] * C.guardNoiseMultiple
+    return Math.min(
+      C.maxPunchExcursionGate,
+      Math.max(
+        C.minPunchExcursion,
+        cal.guardJitter[this.side] * C.guardNoiseMultiple
+      )
     );
   }
 
   /** Excursion below which the hand counts as back at guard and re-arms. */
   private reArmExcursion(cal: CalibrationData): number {
-    return Math.max(
-      C.guardExcursion,
-      cal.guardJitter[this.side] * C.guardNoiseMultiple * 0.6
+    // Clamped for the same reason as minExcursion, and it matters just as much:
+    // an inflated re-arm radius is what a fist has to travel past before the
+    // episode counts as an attempt at all, and what it has to come back inside
+    // before the episode can close. In the 2026-07-29 run this reached ~0.7
+    // torso units and produced 77 timeouts against 2 detections.
+    return Math.min(
+      C.maxPunchExcursionGate * 0.6,
+      Math.max(
+        C.guardExcursion,
+        cal.guardJitter[this.side] * C.guardNoiseMultiple * 0.6
+      )
     );
   }
 

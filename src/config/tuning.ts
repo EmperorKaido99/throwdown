@@ -139,6 +139,35 @@ export const PERCEPTION_CONFIG = {
   minPunchExcursion: 0.13,
   /** Multiple of measured guard jitter treated as the noise ceiling. */
   guardNoiseMultiple: 3,
+  /**
+   * Ceiling on the jitter-scaled punch gate, torso units.
+   *
+   * The adaptation is worth keeping — it stops a shaky stance producing phantom
+   * punches — but it had no upper bound, and that is what broke the run of
+   * 2026-07-29 14:33. The player stood far enough back that torso scale halved
+   * (0.243 against 0.536 the run before), landmark noise became a large
+   * fraction of body size, measured guard jitter reached ~0.4 torso units, and
+   * the gate inflated to 1.08-1.28 — roughly ten times the floor. Real punches
+   * in that same run measured 0.66-1.29, so the gate had climbed into the
+   * middle of the distribution it was meant to sit under.
+   *
+   * 0.40 sits well above the floor (0.13) and well below the weakest punch
+   * observed on real hardware (0.66). Past this the calibration is not noisy,
+   * it is wrong, and the honest response is to warn rather than to adapt.
+   */
+  maxPunchExcursionGate: 0.4,
+  /**
+   * Guard jitter above which a calibration is reported as untrustworthy rather
+   * than merely noisy. Corresponds to the ceiling above, divided by the noise
+   * multiple.
+   */
+  maxUsableGuardJitter: 0.13,
+  /**
+   * Torso scale below which the player is too small in frame for landmark noise
+   * to stay a small fraction of body size. Measured: 0.536 gave usable jitter,
+   * 0.243 gave jitter roughly 40x higher.
+   */
+  minUsableTorsoScale: 0.32,
   /** Below this excursion the hand counts as back at guard, re-arming. */
   guardExcursion: 0.07,
   /**

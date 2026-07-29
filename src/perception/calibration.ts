@@ -251,3 +251,50 @@ export class CalibrationCollector {
     return mean(this.acc.torso);
   }
 }
+
+/**
+ * Problems with a completed calibration that will wreck a measured run.
+ *
+ * Every threshold is normalized by torso scale, so a player who is small in
+ * frame divides by a small number and turns ordinary landmark noise into a
+ * large normalized jitter. The gates derived from that jitter are clamped
+ * (config `maxPunchExcursionGate`), but clamping only stops the failure from
+ * being total — the calibration is still describing a body the tracker can
+ * barely resolve. On 2026-07-29 this produced 1 detection in 80 punches, and
+ * nothing on screen said anything was wrong.
+ *
+ * Returned as plain sentences so they can go on screen and into the report
+ * unchanged.
+ */
+export function calibrationWarnings(cal: CalibrationData): string[] {
+  const out: string[] = [];
+
+  if (cal.torsoScale < PERCEPTION_CONFIG.minUsableTorsoScale) {
+    out.push(
+      `You are too far from the camera — your torso measures ${cal.torsoScale.toFixed(
+        2
+      )} of the frame, and below ${PERCEPTION_CONFIG.minUsableTorsoScale} tracking noise swamps the measurement. Move closer until your hips are only just in shot.`
+    );
+  }
+
+  for (const side of ["left", "right"] as const) {
+    const j = cal.guardJitter[side];
+    if (j > PERCEPTION_CONFIG.maxUsableGuardJitter) {
+      out.push(
+        `Your ${side} fist moved ${j.toFixed(
+          2
+        )} torso units while holding guard, against a usable limit of ${
+          PERCEPTION_CONFIG.maxUsableGuardJitter
+        }. Either it drifted during calibration, or the tracker is struggling — hold still, improve the lighting, or move closer.`
+      );
+    }
+  }
+
+  if (cal.scaleSource === "shoulder-width") {
+    out.push(
+      "Your hips were not visible, so torso scale fell back to shoulder width. That measure shrinks as you turn side-on into a stance, which moves every threshold mid-run."
+    );
+  }
+
+  return out;
+}

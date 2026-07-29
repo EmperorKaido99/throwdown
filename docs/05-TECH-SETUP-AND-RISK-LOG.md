@@ -367,6 +367,38 @@ Also added, because the protocol had no room to explain anything: a spoken block
 
 **Rejected: a Python TTS library.** Proposed by the project owner. It cannot work in this architecture — the app is static files served from Vercel and executes entirely in the player's browser, with no Python runtime anywhere in the stack. The existing Web Speech synthesis is already the correct mechanism and is what has been speaking the prompts. If voice *consistency across devices* later turns out to matter for a measurement, the supportable route is pre-rendering the fixed set of cues to audio files at build time (with any TTS, Python included) and shipping them as static assets — at the cost of ~40 more assets and losing the ability to speak a rep count. Not needed yet.
 
+**19. (New, 2026-07-29) Run 3: the guard-clearance fix worked. A second, independent bug replaced it — the jitter-scaled gate has no upper bound.**
+Status: **BUG FOUND, FIXED, REGRESSION-TESTED. Not yet re-measured.**
+
+Run 3, build `8525a1b`, Android Chrome, the full 80 trials, all four punch types. 1/80 detected.
+
+```
+  attempts 103 · detected 2 · rejected 24 · timed out 77
+  rejected by gate: excursion < ×24
+  last rejections: exc 0.90 < 1.28 · exc 0.78 < 1.08 · exc 0.85 < 1.28 · exc 1.10 < 1.28
+  peak seen: left excursion 1.42 · right 1.69
+  torso scale 0.243 (shoulder-hip) · GPU · 16.8 → 14.9 FPS
+```
+
+**The configured excursion floor is 0.13. The gates in that log are 1.08 and 1.28** — inflated roughly tenfold by the jitter scaling introduced as fix 5 of entry 14, which had no ceiling. Working backwards, measured guard jitter was ~0.36 (right) and ~0.43 (left) torso units.
+
+**Why the jitter was so large: the player stood too far back.** Torso scale was **0.243**, against **0.536** in run 2 — the body occupied half the frame it had before. Every threshold is normalized by torso scale, so a small body in frame divides ordinary landmark noise by a small number and turns it into a large normalized jitter. The framing advice given before this run ("stand back until your hips are in shot") caused it; "hips just in shot" was the intended reading and was not what was said.
+
+**This also explains the 77 timeouts**, which were new. `reArmExcursion` is derived from the same jitter and reached ~0.65–0.77 torso units. That is both the distance a fist must clear before an episode counts as an attempt *and* the radius it must return inside for the episode to close — so three quarters of attempts left guard and never came home inside 700 ms.
+
+**Progress worth recording, because the shape of this failure is much better than run 2's:**
+- The guard-clearance fix (entry 17) worked. Episodes now last 3–8 samples over 160–470 ms with excursions of 0.66–1.29, instead of 2–3 samples and 0.04. They are measuring real punches.
+- Every rejected punch **would have passed the configured floor of 0.13** — most by a factor of five or more. Detection is close.
+- The single detection got its **family and its hand right** (a hook read as an uppercut: both curved, both lead hand), with a fully-extended arm (elbow 0.07° → 163°), 8 samples and 417 ms. n=1, so it means very little, but it is the first real punch this project has ever detected.
+
+**Fix:** clamp both derived radii. `maxPunchExcursionGate` = 0.40 caps the jitter-scaled punch gate, and the re-arm radius is capped at 0.6 × that. 0.40 sits well above the 0.13 floor and well below the weakest punch observed on real hardware (0.66), so the adaptation still protects against a shaky stance without being able to climb into the middle of the punch distribution.
+
+**Clamping alone is not the fix, though — it stops a total failure and leaves a bad calibration in place.** So `calibrationWarnings()` now flags, on screen before the run and in the report afterwards: torso scale below 0.32, guard jitter above 0.13 torso units per hand, and the shoulder-width fallback. Run 3's calibration would have produced two loud warnings before a single punch was thrown; instead it said nothing at all, and cost a six-minute run.
+
+**Regression tests:** a clean synthetic punch must still detect under a calibration carrying run 3's measured jitter (fails before the clamp), and mildly noisy tracking must still suppress idle-guard false positives (guards against over-clamping). 60 tests pass.
+
+**Standing instruction for the next run: stand so your hips are *only just* in shot, not further.** Torso scale should read ≥ 0.35 on the calibration screen. It is now displayed there alongside guard jitter.
+
 ## Instruction for whoever (or whatever) is executing this plan
 
 When any of the above is investigated and resolved, update its status and findings in place rather than just proceeding silently — this file is meant to make the project's actual state of knowledge visible at a glance, not to be a one-time planning artifact that goes stale.

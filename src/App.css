@@ -631,3 +631,16 @@
   letter-spacing: 0;
   margin-top: 0.25rem;
 }
+
+/* Calibration problems that will wreck a run. Loud on purpose: the previous
+   failure mode was a bad calibration saying nothing at all. */
+.calib-warn {
+  margin: 0.4rem 0 0;
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  background: #3a2a10;
+  border: 1px solid #6b4f1d;
+  color: #fbbf24;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
