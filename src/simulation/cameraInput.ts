@@ -33,6 +33,7 @@ export function cameraInput(
   queuedPunch: QueuedPunch | null,
   head: HeadState | null
 ): FighterInput {
+  const rawLean = head?.lean ?? 0;
   return {
     punch: queuedPunch,
     // NEGATED, and this is load-bearing. HeadState.lean is in IMAGE space: the
@@ -41,7 +42,11 @@ export function cameraInput(
     // in the fighter's OWN frame, where +1 means their right. Getting this
     // backwards would make every slip dodge the wrong way — and it would look
     // correct on screen, because the camera preview is mirrored.
-    lean: -(head?.lean ?? 0),
+    // Guarded against -0, which negating zero produces. It behaves like 0 in
+    // arithmetic but not under Object.is or a deep equality check, so it would
+    // make two clients' state compare unequal while looking identical — and
+    // rollback netcode decides whether to resimulate by comparing exactly that.
+    lean: rawLean === 0 ? 0 : -rawLean,
     duck: head?.duck ?? 0,
   };
 }
